@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+# routes/routers.py
+from fastapi import APIRouter, Depends, HTTPException   # ← add HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas.router import RouterCreate, RouterOut
@@ -16,4 +17,7 @@ def add_router(data: RouterCreate, db: Session = Depends(get_db)):
 
 @router.delete("/{router_id}")
 def remove_router(router_id: int, db: Session = Depends(get_db)):
-    return router_controller.delete_router(router_id, db)
+    result = router_controller.delete_router(router_id, db)
+    if not result:                                          # ← add 404
+        raise HTTPException(status_code=404, detail="Router not found")
+    return {"deleted": router_id}
