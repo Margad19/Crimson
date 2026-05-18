@@ -6,8 +6,6 @@ from models.user import User
 from models.ftp import FTPServer
 from netmiko import ConnectHandler
 from datetime import datetime
-import io
-import tftpy
 
 def run_backup(router_id: int, ftp_id: int, user_id: int, db: Session):
 
@@ -21,17 +19,29 @@ def run_backup(router_id: int, ftp_id: int, user_id: int, db: Session):
     if not router:
         return {"error": "Router not found"}
 
-    # 2. Fetch device → get backup_command
+    # 2. Fetch device
     device = db.query(Device).filter(Device.id == router.device_id).first()
     if not device:
         return {"error": "Device type not found"}
 
-    # 3. Fetch FTP server
+    # 3. Fetch TFTP server
     ftp = db.query(FTPServer).filter(FTPServer.id == ftp_id).first()
     if not ftp:
-        return {"error": "FTP server not found"}
+        return {"error": "TFTP server not found"}
 
-    # 4. Build netmiko connection
+    # 4. Check device supports TFTP backup
+    if not device.backup_tftp_command:
+        return {"error": f"{device.name} does not support TFTP backup"}
+
+    # 5. Build filename + TFTP command
+    date_str     = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    filename     = f"{router.name}_{date_str}"
+
+    tftp_command = device.backup_tftp_command\
+        .replace("{tftp_host}", ftp.host)\
+        .replace("{filename}", filename)
+
+    # 6. Build netmiko connection
     connection_params = {
         "device_type": device.netmiko_type,
         "host":        router.host,
@@ -44,56 +54,32 @@ def run_backup(router_id: int, ftp_id: int, user_id: int, db: Session):
     if router.connection_type == "telnet":
         connection_params["device_type"] = device.netmiko_type + "_telnet"
 
-    # 5. Connect → get config
+    # 7. Connect → run both commands
     try:
         connection = ConnectHandler(**connection_params)
 
-        if router.secret:
-            connection.enable(
-                cmd_verify=False,
-                pattern=r'#'
-            )
+        connection.find_prompt()
 
-        output = connection.send_command(device.backup_command)
+        if router.secret:
+            connection.enable()
+        
+        # TFTP command
+        dat_output = connection.send_command_timing(
+            tftp_command,
+            delay_factor=4
+        )
+
         connection.disconnect()
 
     except Exception as e:
         return {"error": f"Router connection failed: {str(e)}"}
 
-    # 6. Build filename
-    date_str = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    filename     = f"{router.name}_{date_str}.txt"
-    filename_dat = f"{router.name}_{date_str}.dat"
-
-    # 7. Send to TFTP
-    try:
-        # Write temp files locally first
-        with open(filename, "w") as f:
-            f.write(output)
-
-        with open(filename_dat, "w") as f:
-            f.write(output)
-
-        import time
-
-        client = tftpy.TftpClient(ftp.host, 69)
-        client.upload(filename, filename)
-        time.sleep(2)                             # ← wait for transfer
-        client.upload(filename_dat, filename_dat)
-        time.sleep(2)                             # ← wait for transfer
-
-    except Exception as e:
-        return {"error": f"TFTP upload failed: {str(e)}"}
-
-    finally:
-        import os
-        if os.path.exists(filename):     os.remove(filename)
-        if os.path.exists(filename_dat): os.remove(filename_dat)
-
     return {
-        "router_name": router.name,
-        "ftp_server":  ftp.name,
-        "filename":    filename,
-        "status":      "success",
-        "executed_at": datetime.now()
+        "router_name":  router.name,
+        "ftp_server":   ftp.name,
+        "filename_txt": f"{filename}.txt",
+        "filename_dat": f"{filename}.dat",
+        "dat_output":   dat_output,
+        "status":       "success",
+        "executed_at":  datetime.now()
     }

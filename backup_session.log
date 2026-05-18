@@ -1,0 +1,277 @@
+****************************************************************
+    Authorized Personnel Only      -       Blue Sky
+****************************************************************
+
+Username:Sanchir
+Password:
+Blue_Sky-3906>
+Blue_Sky-3906>
+Blue_Sky-3906>terminal length 0
+                ^
+% Invalid input detected at '^' marker.
+Blue_Sky-3906>
+Blue_Sky-3906>
+Blue_Sky-3906>enable
+Password:
+Blue_Sky-3906#
+Blue_Sky-3906#
+Blue_Sky-3906#terminal length 256
+Blue_Sky-3906#show running-config
+Building configuration...
+
+Current configuration:
+!
+version V4.6.02D
+!
+enable secret 5 NfKaz3SF1n9e+xbKrDtNoA==
+!
+nvram mng-ip-address 10.40.88.173 255.255.0.0 
+!
+nvram boot-username target
+!
+nvram boot-password target
+!
+nvram boot-server 10.40.88.170
+!
+nvram default-gateway 1.1.1.1
+!
+nvram imgfile-location local
+!
+hostname Blue_Sky-3906
+!
+username bolor password H248Jd66fCrN6uawAe3AUA== encode 
+username omc password 6W2170mxOvUaG4lkw7WC6g== encode 
+username sanchir password azZA0ys7+tDWhI5u5FrM2A== encode 
+!
+user-authentication-type local
+user-authorization-type local
+!
+clock timezone UTC 8
+!
+snmp-server contact +86-25-52870000
+snmp-server location No.68 Zijinghua Rd. Yuhuatai District, Nanjing, China
+snmp-server packetSize 1400
+snmp-server engine-id 830900020300010289d64401
+snmp-server access-list 1
+snmp-server community stxgadaad view AllView ro
+snmp-server community public view AllView ro
+snmp-server community private view AllView rw
+snmp-server view DefaultView system included 
+snmp-server view AllView internet included 
+snmp-server enable trap SNMP
+snmp-server enable trap BGP
+snmp-server enable trap OSPF
+!
+logging on
+logging buffer 200
+logging mode fullcycle
+logging console notifications
+logging level notifications
+logging timestamps datetime localtime
+syslog-server facility local0
+!
+unm on
+!
+line console idle-timeout 120
+line console absolute-timeout 1440
+line telnet idle-timeout 120
+line telnet absolute-timeout 1440
+line telnet access-class 1
+!
+!
+!
+banner incoming @
+****************************************************************
+    Authorized Personnel Only      -       Blue Sky
+****************************************************************
+@
+!
+!
+vlan 1
+!
+vlan 7
+name to_CD_link
+!
+vlan 100
+name for_management
+supervlan 255
+  ip supervlan pool 10.0.10.210 10.0.10.222
+!
+vlan 2000
+!
+vlan 2001
+!
+vlan 2002
+!
+vlan 2003
+!
+vlan 2004
+!
+vlan 2005
+!
+vlan 2006
+!
+vlan 2007
+!
+vlan 2008
+!
+vlan 2009
+!
+vlan 2010
+!
+vlan 2011
+name for_KPMG_audit
+supervlan 101
+  ip supervlan pool 124.158.123.154 124.158.123.158
+!
+vlan 2012
+!
+vlan 2013
+!
+vlan 2014
+!
+vlan 2015
+!
+vlan 2016
+!
+vlan 2023
+!
+!
+spanning-tree enable
+spanning-tree mst configuration
+  instance 1 vlan 100-2023
+!
+!
+virus-scan set disable
+!
+iptv sms-server-port 0
+!
+interface loopback1
+  ip address 10.0.0.42 255.255.255.255
+!
+interface vlan 7
+  ip address 10.0.1.242 255.255.255.252
+  description to_CD_link
+!
+interface supervlan101
+  ip address 124.158.123.153 255.255.255.248
+  description for USERS
+  inter-subvlan-routing disable
+!
+interface supervlan255
+  ip address 10.0.10.209 255.255.255.240
+  description for_management
+!
+interface fei_2/1
+  description KPMG_audit
+  negotiation auto
+  switchport access vlan 2011
+  switchport qinq normal
+!
+interface fei_2/2
+  description Mongolia_Welpec_Industrial
+  shutdown
+  negotiation auto
+  switchport access vlan 2012
+  switchport qinq normal
+  traffic-shape queue 4 20480 4
+!
+interface fei_2/3
+  description Eagle-tv-2
+  shutdown
+  negotiation auto
+  switchport access vlan 2013
+  switchport qinq normal
+  traffic-shape queue 4 50000 4
+!
+interface fei_2/4
+  description KDB_Daewoo
+  negotiation auto
+  switchport access vlan 2014
+  switchport qinq normal
+  traffic-shape queue 4 8192 4
+!
+interface fei_2/5
+  description Ticket_box
+  shutdown
+  negotiation auto
+  switchport access vlan 2016
+  switchport qinq normal
+  traffic-shape queue 4 1024 4
+!
+interface fei_2/6
+  description BlueSky_temp
+  negotiation auto
+  switchport access vlan 1
+  switchport qinq normal
+  traffic-shape queue 4 20000 4
+!
+interface fei_2/7
+  description BlueSky_temp
+  negotiation auto
+  switchport access vlan 1
+  switchport qinq normal
+  traffic-shape queue 4 20000 4
+!
+interface fei_2/8
+  description JCDecaux
+  negotiation auto
+  switchport access vlan 2015
+  switchport qinq normal
+  traffic-shape queue 4 4096 4
+!
+interface gei_7/1
+  description to_Shangrilla (backup)
+  shutdown
+  hybrid-attribute fiber
+  negotiation auto
+  switchport mode hybrid
+  switchport hybrid native vlan 1
+  switchport hybrid vlan 1 untag
+  switchport qinq normal
+!
+interface gei_7/2
+  description to_CD_link
+  hybrid-attribute fiber
+  negotiation auto
+  switchport mode hybrid
+  switchport hybrid native vlan 1
+  switchport hybrid vlan 7 tag
+  switchport hybrid vlan 1 untag
+  switchport qinq normal
+!
+interface gei_7/3
+  description 24240
+  hybrid-attribute fiber
+  negotiation auto
+  switchport mode hybrid
+  switchport hybrid native vlan 1
+  switchport hybrid vlan 100 tag
+  switchport hybrid vlan 2009 tag
+  switchport hybrid vlan 1 untag
+  switchport qinq normal
+  traffic-shape queue 4 20000 4
+!
+interface gei_7/4
+  description Router
+  hybrid-attribute copper
+  negotiation auto
+  switchport access vlan 100
+  switchport qinq normal
+!
+ntp server 124.158.121.132
+ntp enable
+!
+router ospf 100
+  router-id 10.0.0.42
+  network 10.0.0.42 0.0.0.0 area 10.0.0.11
+  network 10.0.1.240 0.0.0.3 area 10.0.0.11
+  area 10.0.0.11 nssa
+  redistribute connected metric-type ext-1
+!
+!
+!
+!
+acl basic number 1
+ --More--           rule 1 permit 124.158.119.220 0.0.0.0 
+ --More--exit
