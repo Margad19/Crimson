@@ -1,6 +1,7 @@
 # main.py
 from fastapi import FastAPI
-from routes import routers, devices, commands, execute, users, ftp, backup
+from routes import routers, devices, commands, execute, users, ftp, backup, backup_schedule, schedules, onetime, terminal
+from scheduler import scheduler, load_jobs
 
 app = FastAPI(title="Router Automation API")
 
@@ -11,6 +12,19 @@ app.include_router(execute.router)
 app.include_router(users.router)
 app.include_router(ftp.router)
 app.include_router(backup.router)
+app.include_router(backup_schedule.router)
+app.include_router(schedules.router)
+app.include_router(onetime.router)
+app.include_router(terminal.router)
+
+@app.on_event("startup")
+def startup():
+    scheduler.start()       # ← start scheduler
+    load_jobs()             # ← load active schedules from DB
+
+@app.on_event("shutdown")
+def shutdown():
+    scheduler.shutdown()    # ← clean stop
 
 @app.get("/")
 def root():
