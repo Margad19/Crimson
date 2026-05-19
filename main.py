@@ -1,7 +1,8 @@
 # main.py
 from fastapi import FastAPI
-from routes import routers, devices, commands, execute, users, ftp, backup, backup_schedule, schedules, onetime, terminal
+from routes import routers, devices, commands, execute, users, ftp, backup, backup_schedule, schedules, onetime, terminal, auth
 from scheduler import scheduler, load_jobs
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="Router Automation API")
 
@@ -16,6 +17,7 @@ app.include_router(backup_schedule.router)
 app.include_router(schedules.router)
 app.include_router(onetime.router)
 app.include_router(terminal.router)
+app.include_router(auth.router)
 
 @app.on_event("startup")
 def startup():
@@ -29,3 +31,5 @@ def shutdown():
 @app.get("/")
 def root():
     return {"status": "running"}
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
