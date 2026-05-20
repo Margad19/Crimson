@@ -28,3 +28,10 @@ def remove_device(device_id: int, db: Session = Depends(get_db)):
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
     return {"deleted": device_id}
+
+@router.patch("/{device_id}", response_model=DeviceOut)
+def update_device(device_id: int, data: DeviceCreate, db: Session = Depends(get_db)):
+    device = device_controller.update_device(device_id, data, db)
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    return device

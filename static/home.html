@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>NetOps — Dashboard</title>
+    <title>GmobileNet</title>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" href="./css/home.css">
 </head>
@@ -16,7 +16,7 @@
       <svg viewBox="0 0 16 16"><path d="M2 4h12M2 8h8M2 12h10"/></svg>
     </div>
     <div>
-      <div class="logo-text">NetOps</div>
+      <div class="logo-text">GmobileNet</div>
       <div class="logo-sub">Router Automation</div>
     </div>
   </div>
@@ -122,21 +122,21 @@
       <div class="stats-grid">
         <div class="stat-card blue">
           <div class="stat-label">Routers</div>
-          <div class="stat-value">4</div>
-          <div class="stat-sub">2 telnet · 2 ssh</div>
+          <div class="stat-value" id="stat-routers">—</div>
+          <div class="stat-sub"   id="stat-routers-sub">loading...</div>
         </div>
         <div class="stat-card green">
           <div class="stat-label">Online</div>
-          <div class="stat-value">3</div>
-          <div class="stat-sub">1 unreachable</div>
+          <div class="stat-value" id="stat-online">—</div>
+          <div class="stat-sub"   id="stat-online-sub">loading...</div>
         </div>
         <div class="stat-card amber">
           <div class="stat-label">Schedules</div>
-          <div class="stat-value">6</div>
-          <div class="stat-sub">4 active · 2 paused</div>
+          <div class="stat-value" id="stat-schedules">—</div>
+          <div class="stat-sub"   id="stat-schedules-sub">loading...</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Backups Today</div>
+          <div class="stat-label">Backups Today(Dummy)</div>
           <div class="stat-value">12</div>
           <div class="stat-sub">last 1h ago</div>
         </div>
@@ -144,7 +144,7 @@
 
       <div class="grid-2">
         <div>
-          <div class="sec-header"><span class="sec-title">Recent Activity</span></div>
+          <div class="sec-header"><span class="sec-title">Recent Activity(Dummy)</span></div>
           <div class="table-wrap">
             <div class="log-list">
               <div class="log-item"><div class="log-dot ok"></div><div class="log-time">05:47:01</div><div class="log-msg">Backup <span>Bluesky-3906</span> → Main Server</div></div>
@@ -161,11 +161,8 @@
           <div class="table-wrap">
             <table>
               <thead><tr><th>Router</th><th>Type</th><th>Next Run</th></tr></thead>
-              <tbody>
-                <tr><td>Bluesky-3906</td><td><span class="badge active">backup</span></td><td class="mono">06:00:00</td></tr>
-                <tr><td>Core-SW-01</td><td><span class="badge active">cmd</span></td><td class="mono">07:00:00</td></tr>
-                <tr><td>Dist-R-02</td><td><span class="badge active">backup</span></td><td class="mono">08:00:00</td></tr>
-                <tr><td>Branch-R-03</td><td><span class="badge paused">cmd</span></td><td class="mono">paused</td></tr>
+              <tbody id="upcoming-tbody">
+                <tr><td colspan="3" style="color:var(--muted)">loading...</td></tr>
               </tbody>
             </table>
           </div>
@@ -177,52 +174,13 @@
     <div class="section" id="s-routers">
       <div class="sec-header">
         <span class="sec-title">Routers</span>
-        <button class="btn primary"><svg viewBox="0 0 16 16"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>Add Router</button>
+        <button class="btn primary" onclick="showAddRouterModal()"><svg viewBox="0 0 16 16"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>Add Router</button>
       </div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Name</th><th>Host</th><th>Type</th><th>Protocol</th><th>Port</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody>
-            <tr>
-              <td>Bluesky-3906</td><td class="mono">10.0.0.42</td><td>ZTE ZXROS</td>
-              <td><span class="badge telnet">telnet</span></td><td class="mono">23</td>
-              <td><span class="badge online">online</span></td>
-              <td><div class="actions">
-                <button class="icon-btn run" title="Open terminal"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="11" rx="1"/><polyline points="4 6 7 8 4 10"/></svg></button>
-                <button class="icon-btn" title="Edit"><svg viewBox="0 0 16 16"><path d="M11 2l3 3-9 9H2v-3L11 2z"/></svg></button>
-                <button class="icon-btn del" title="Delete"><svg viewBox="0 0 16 16"><polyline points="2 4 4 4 14 4"/><path d="M5 4V3h6v1m1 0v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4h8z"/></svg></button>
-              </div></td>
-            </tr>
-            <tr>
-              <td>Core-SW-01</td><td class="mono">192.168.1.1</td><td>Cisco IOS</td>
-              <td><span class="badge ssh">ssh</span></td><td class="mono">22</td>
-              <td><span class="badge online">online</span></td>
-              <td><div class="actions">
-                <button class="icon-btn run"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="11" rx="1"/><polyline points="4 6 7 8 4 10"/></svg></button>
-                <button class="icon-btn"><svg viewBox="0 0 16 16"><path d="M11 2l3 3-9 9H2v-3L11 2z"/></svg></button>
-                <button class="icon-btn del"><svg viewBox="0 0 16 16"><polyline points="2 4 4 4 14 4"/><path d="M5 4V3h6v1m1 0v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4h8z"/></svg></button>
-              </div></td>
-            </tr>
-            <tr>
-              <td>Dist-R-02</td><td class="mono">10.0.1.1</td><td>ZTE ZXROS</td>
-              <td><span class="badge telnet">telnet</span></td><td class="mono">23</td>
-              <td><span class="badge online">online</span></td>
-              <td><div class="actions">
-                <button class="icon-btn run"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="11" rx="1"/><polyline points="4 6 7 8 4 10"/></svg></button>
-                <button class="icon-btn"><svg viewBox="0 0 16 16"><path d="M11 2l3 3-9 9H2v-3L11 2z"/></svg></button>
-                <button class="icon-btn del"><svg viewBox="0 0 16 16"><polyline points="2 4 4 4 14 4"/><path d="M5 4V3h6v1m1 0v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4h8z"/></svg></button>
-              </div></td>
-            </tr>
-            <tr>
-              <td>Edge-R-04</td><td class="mono">10.0.2.1</td><td>Cisco IOS</td>
-              <td><span class="badge ssh">ssh</span></td><td class="mono">22</td>
-              <td><span class="badge offline">offline</span></td>
-              <td><div class="actions">
-                <button class="icon-btn run"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="11" rx="1"/><polyline points="4 6 7 8 4 10"/></svg></button>
-                <button class="icon-btn"><svg viewBox="0 0 16 16"><path d="M11 2l3 3-9 9H2v-3L11 2z"/></svg></button>
-                <button class="icon-btn del"><svg viewBox="0 0 16 16"><polyline points="2 4 4 4 14 4"/><path d="M5 4V3h6v1m1 0v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4h8z"/></svg></button>
-              </div></td>
-            </tr>
+          <tbody id="routers-tbody">
+            <tr><td colspan="7" style="color:var(--muted);text-align:center">loading...</td></tr>
           </tbody>
         </table>
       </div>
@@ -232,28 +190,13 @@
     <div class="section" id="s-devices">
       <div class="sec-header">
         <span class="sec-title">Device Types</span>
-        <button class="btn primary"><svg viewBox="0 0 16 16"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>Add Device</button>
+        <button class="btn primary" onclick="showAddDeviceModal()"><svg viewBox="0 0 16 16"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>Add Device</button>
       </div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Name</th><th>Netmiko Type</th><th>Backup Command</th><th>Actions</th></tr></thead>
-          <tbody>
-            <tr>
-              <td>ZTE ZXROS</td><td class="mono">zte_zxros</td>
-              <td class="mono" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">copy flash:/cfg/startrun.dat tftp://{tftp_host}/{filename}.dat</td>
-              <td><div class="actions">
-                <button class="icon-btn"><svg viewBox="0 0 16 16"><path d="M11 2l3 3-9 9H2v-3L11 2z"/></svg></button>
-                <button class="icon-btn del"><svg viewBox="0 0 16 16"><polyline points="2 4 4 4 14 4"/><path d="M5 4V3h6v1m1 0v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4h8z"/></svg></button>
-              </div></td>
-            </tr>
-            <tr>
-              <td>Cisco IOS</td><td class="mono">cisco_ios</td>
-              <td class="mono">copy running-config tftp://{tftp_host}/{filename}</td>
-              <td><div class="actions">
-                <button class="icon-btn"><svg viewBox="0 0 16 16"><path d="M11 2l3 3-9 9H2v-3L11 2z"/></svg></button>
-                <button class="icon-btn del"><svg viewBox="0 0 16 16"><polyline points="2 4 4 4 14 4"/><path d="M5 4V3h6v1m1 0v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4h8z"/></svg></button>
-              </div></td>
-            </tr>
+          <tbody id="devices-tbody">
+            <tr><td colspan="4" style="color:var(--muted);text-align:center">loading...</td></tr>
           </tbody>
         </table>
       </div>
@@ -263,21 +206,12 @@
     <div class="section" id="s-ftp">
       <div class="sec-header">
         <span class="sec-title">TFTP Servers</span>
-        <button class="btn primary"><svg viewBox="0 0 16 16"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>Add Server</button>
+        <button class="btn primary" onclick="showAddFtpModal()"><svg viewBox="0 0 16 16"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>Add Server</button>
       </div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Name</th><th>Host</th><th>Directory</th><th>Auth</th><th>Actions</th></tr></thead>
-          <tbody>
-            <tr>
-              <td>Main Server</td><td class="mono">124.158.119.219</td>
-              <td class="mono">—</td><td>none</td>
-              <td><div class="actions">
-                <button class="icon-btn"><svg viewBox="0 0 16 16"><path d="M11 2l3 3-9 9H2v-3L11 2z"/></svg></button>
-                <button class="icon-btn del"><svg viewBox="0 0 16 16"><polyline points="2 4 4 4 14 4"/><path d="M5 4V3h6v1m1 0v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4h8z"/></svg></button>
-              </div></td>
-            </tr>
-          </tbody>
+          <tbody id="ftp-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -286,38 +220,12 @@
     <div class="section" id="s-commands">
       <div class="sec-header">
         <span class="sec-title">Commands</span>
-        <button class="btn primary"><svg viewBox="0 0 16 16"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>Add Command</button>
+        <button class="btn primary" onclick="showAddCommandModal()"><svg viewBox="0 0 16 16"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>Add Command</button>
       </div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Name</th><th>Device Type</th><th>Command</th><th>Description</th><th>Actions</th></tr></thead>
-          <tbody>
-            <tr>
-              <td>Show Version</td><td>ZTE ZXROS</td>
-              <td class="mono">show version</td><td style="color:var(--muted)">Get firmware info</td>
-              <td><div class="actions">
-                <button class="icon-btn"><svg viewBox="0 0 16 16"><path d="M11 2l3 3-9 9H2v-3L11 2z"/></svg></button>
-                <button class="icon-btn del"><svg viewBox="0 0 16 16"><polyline points="2 4 4 4 14 4"/><path d="M5 4V3h6v1m1 0v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4h8z"/></svg></button>
-              </div></td>
-            </tr>
-            <tr>
-              <td>Show Interfaces</td><td>Cisco IOS</td>
-              <td class="mono">show interfaces</td><td style="color:var(--muted)">Interface status</td>
-              <td><div class="actions">
-                <button class="icon-btn"><svg viewBox="0 0 16 16"><path d="M11 2l3 3-9 9H2v-3L11 2z"/></svg></button>
-                <button class="icon-btn del"><svg viewBox="0 0 16 16"><polyline points="2 4 4 4 14 4"/><path d="M5 4V3h6v1m1 0v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4h8z"/></svg></button>
-              </div></td>
-            </tr>
-            <tr>
-              <td>ZTE Backup</td><td>ZTE ZXROS</td>
-              <td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">copy flash:/cfg/startrun.dat tftp://...</td>
-              <td style="color:var(--muted)">ZTE backup command</td>
-              <td><div class="actions">
-                <button class="icon-btn"><svg viewBox="0 0 16 16"><path d="M11 2l3 3-9 9H2v-3L11 2z"/></svg></button>
-                <button class="icon-btn del"><svg viewBox="0 0 16 16"><polyline points="2 4 4 4 14 4"/><path d="M5 4V3h6v1m1 0v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4h8z"/></svg></button>
-              </div></td>
-            </tr>
-          </tbody>
+          <tbody id="commands-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -329,20 +237,20 @@
         <div class="exec-grid">
           <div class="field-group">
             <div class="field-label">Router</div>
-            <select><option>Bluesky-3906</option><option>Core-SW-01</option><option>Dist-R-02</option></select>
+            <select id="exec-router-sel" onchange="populateExecCommands()"></select>
           </div>
           <div class="field-group">
             <div class="field-label">Command</div>
-            <select><option>Show Version</option><option>Show Interfaces</option><option>ZTE Backup</option></select>
+            <select id="exec-cmd-sel"></select>
           </div>
         </div>
-        <button class="btn primary" style="gap:8px">
+        <button class="btn primary" style="gap:8px" id="exec-run-btn" onclick="runExecute()">
           <svg viewBox="0 0 16 16" style="width:12px;height:12px;stroke:none;fill:white"><polygon points="3,2 13,8 3,14"/></svg>
           Run Now
         </button>
       </div>
       <div class="sec-header"><span class="sec-title">Output</span></div>
-      <div class="result-box">— awaiting execution —</div>
+      <div class="result-box" id="exec-output">— awaiting execution —</div>
     </div>
 
     <!-- ── BACKUP ── -->
@@ -352,52 +260,58 @@
         <div class="exec-grid">
           <div class="field-group">
             <div class="field-label">Router</div>
-            <select><option>Bluesky-3906</option><option>Core-SW-01</option><option>Dist-R-02</option></select>
+            <select id="backup-router-sel"></select>
           </div>
           <div class="field-group">
             <div class="field-label">TFTP Server</div>
-            <select><option>Main Server (124.158.119.219)</option></select>
+            <select id="backup-ftp-sel"></select>
           </div>
         </div>
-        <button class="btn primary">
+        <button class="btn primary" id="backup-run-btn" onclick="runBackup()">
           <svg viewBox="0 0 16 16" style="width:13px;height:13px;fill:none;stroke:white;stroke-width:2"><path d="M13 10a5 5 0 10-9.9-1H3a3 3 0 000 6h9a3 3 0 001-5.83"/><polyline points="8 7 8 13 11 10"/></svg>
           Start Backup
         </button>
       </div>
       <div class="sec-header"><span class="sec-title">Result</span></div>
-      <div class="result-box">— awaiting backup —</div>
+      <div class="result-box" id="backup-output">— awaiting backup —</div>
     </div>
 
     <!-- ── SCHEDULES ── -->
     <div class="section" id="s-schedules">
       <div class="sec-header">
-        <span class="sec-title">Recurring Schedules</span>
-        <button class="btn primary"><svg viewBox="0 0 16 16"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>New Schedule</button>
+        <span class="sec-title">Schedules</span>
+        <div style="display:flex;gap:8px">
+          <button class="btn primary" onclick="showAddCmdScheduleModal()">+ Command Schedule</button>
+          <button class="btn primary" onclick="showAddBakScheduleModal()">+ Backup Schedule</button>
+        </div>
       </div>
-      <div class="table-wrap mb-14">
-        <table>
-          <thead><tr><th>Router</th><th>Type</th><th>Cron</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody>
-            <tr><td>Bluesky-3906</td><td>backup</td><td class="mono">0 2 * * *</td><td><span class="badge active">active</span></td>
-              <td><div class="actions">
-                <button class="icon-btn" title="Toggle"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><line x1="8" y1="5" x2="8" y2="8"/><circle cx="8" cy="11" r=".5" fill="currentColor"/></svg></button>
-                <button class="icon-btn del"><svg viewBox="0 0 16 16"><polyline points="2 4 4 4 14 4"/><path d="M5 4V3h6v1m1 0v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4h8z"/></svg></button>
-              </div></td>
-            </tr>
-            <tr><td>Core-SW-01</td><td>command</td><td class="mono">0 * * * *</td><td><span class="badge active">active</span></td>
-              <td><div class="actions">
-                <button class="icon-btn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><line x1="8" y1="5" x2="8" y2="8"/><circle cx="8" cy="11" r=".5" fill="currentColor"/></svg></button>
-                <button class="icon-btn del"><svg viewBox="0 0 16 16"><polyline points="2 4 4 4 14 4"/><path d="M5 4V3h6v1m1 0v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4h8z"/></svg></button>
-              </div></td>
-            </tr>
-            <tr><td>Branch-R-03</td><td>command</td><td class="mono">0 3 * * 1</td><td><span class="badge paused">paused</span></td>
-              <td><div class="actions">
-                <button class="icon-btn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><line x1="8" y1="5" x2="8" y2="8"/><circle cx="8" cy="11" r=".5" fill="currentColor"/></svg></button>
-                <button class="icon-btn del"><svg viewBox="0 0 16 16"><polyline points="2 4 4 4 14 4"/><path d="M5 4V3h6v1m1 0v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4h8z"/></svg></button>
-              </div></td>
-            </tr>
-          </tbody>
-        </table>
+
+      <!-- sub-tabs -->
+      <div style="display:flex;gap:0;margin-bottom:14px;border-bottom:1px solid var(--bd)">
+        <button id="sched-tab-cmd" class="btn active" style="border-radius:4px 4px 0 0"
+          onclick="switchSchedTab('cmd')">Command Schedules</button>
+        <button id="sched-tab-bak" class="btn" style="border-radius:4px 4px 0 0"
+          onclick="switchSchedTab('bak')">Backup Schedules</button>
+      </div>
+
+      <!-- command schedules panel -->
+      <div id="sched-panel-cmd">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Router</th><th>Command</th><th>Schedule</th><th>Cron</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="cmd-sched-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- backup schedules panel -->
+      <div id="sched-panel-bak" style="display:none">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Router</th><th>TFTP Server</th><th>Schedule</th><th>Cron</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="bak-sched-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -405,27 +319,12 @@
     <div class="section" id="s-onetime">
       <div class="sec-header">
         <span class="sec-title">One-Time Jobs</span>
-        <button class="btn primary"><svg viewBox="0 0 16 16"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>New Job</button>
+        <button class="btn primary" onclick="showAddOnetimeModal()"><svg viewBox="0 0 16 16"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>New Job</button>
       </div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Name</th><th>Router</th><th>Command</th><th>Scheduled At</th><th>Actions</th></tr></thead>
-          <tbody>
-            <tr>
-              <td>clear arp table</td><td>Bluesky-3906</td><td class="mono">clear arp</td>
-              <td class="mono">2026-05-20 13:00</td>
-              <td><div class="actions">
-                <button class="icon-btn del" title="Cancel"><svg viewBox="0 0 16 16"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg></button>
-              </div></td>
-            </tr>
-            <tr>
-              <td>show config</td><td>Core-SW-01</td><td class="mono">show running-config</td>
-              <td class="mono">2026-05-21 09:00</td>
-              <td><div class="actions">
-                <button class="icon-btn del"><svg viewBox="0 0 16 16"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg></button>
-              </div></td>
-            </tr>
-          </tbody>
+          <tbody id="onetime-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -464,31 +363,28 @@
     <div class="section" id="s-users">
       <div class="sec-header">
         <span class="sec-title">Users</span>
-        <button class="btn primary"><svg viewBox="0 0 16 16"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>Add User</button>
+        <button class="btn primary" onclick="showAddUserModal()"><svg viewBox="0 0 16 16"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>Add User</button>
       </div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Email</th><th>DOB</th><th>Created</th><th>Actions</th></tr></thead>
-          <tbody>
-            <tr>
-              <td class="mono">1</td><td>margad</td>
-              <td><span class="badge active">engineer</span></td>
-              <td>margadmga@gmail.com</td>
-              <td class="mono">2004-05-03</td>
-              <td class="mono">2026-05-07</td>
-              <td><div class="actions">
-                <button class="icon-btn"><svg viewBox="0 0 16 16"><path d="M11 2l3 3-9 9H2v-3L11 2z"/></svg></button>
-                <button class="icon-btn del"><svg viewBox="0 0 16 16"><polyline points="2 4 4 4 14 4"/><path d="M5 4V3h6v1m1 0v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4h8z"/></svg></button>
-              </div></td>
-            </tr>
-          </tbody>
+          <tbody id="users-tbody"></tbody>
         </table>
       </div>
     </div>
 
   </div><!-- /content -->
 </div><!-- /main -->
-
 <script src="./js/home.js"></script>
+<script src="./js/dashboard.js"></script>
+<script src="./js/routers.js"></script>
+<script src="./js/devices.js"></script>
+<script src="./js/ftp.js"></script>
+<script src="./js/commands.js"></script>
+<script src="./js/execute.js"></script>
+<script src="./js/backup.js"></script>
+<script src="./js/schedules.js"></script>
+<script src="./js/onetime.js"></script>
+<script src="./js/users.js"></script>
 </body>
 </html>

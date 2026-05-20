@@ -23,3 +23,13 @@ def delete_device(device_id: int, db: Session):
     db.delete(device)
     db.commit()
     return device
+
+def update_device(device_id: int, data: DeviceCreate, db: Session):
+    device = db.query(Device).filter(Device.id == device_id).first()
+    if not device:
+        return None
+    for key, value in data.model_dump().items():
+        setattr(device, key, value)
+    db.commit()
+    db.refresh(device)
+    return device

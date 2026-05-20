@@ -21,3 +21,7 @@ def remove_router(router_id: int, db: Session = Depends(get_db)):
     if not result:                                          # ← add 404
         raise HTTPException(status_code=404, detail="Router not found")
     return {"deleted": router_id}
+
+@router.get("/status")
+def router_statuses(db: Session = Depends(get_db)):
+    return router_controller.get_router_statuses(db)

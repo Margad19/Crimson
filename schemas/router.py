@@ -1,5 +1,6 @@
 # schemas/router.py
 from pydantic import BaseModel
+from datetime import datetime   # ← add this
 
 class RouterCreate(BaseModel):
     name: str

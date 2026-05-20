@@ -3,8 +3,16 @@ from fastapi import FastAPI
 from routes import routers, devices, commands, execute, users, ftp, backup, backup_schedule, schedules, onetime, terminal, auth
 from scheduler import scheduler, load_jobs
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Router Automation API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -33,4 +41,3 @@ def shutdown():
 @app.get("/")
 def root():
     return {"status": "running"}
-
