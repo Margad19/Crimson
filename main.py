@@ -6,6 +6,8 @@ from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="Router Automation API")
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 app.include_router(routers.router)
 app.include_router(devices.router)
 app.include_router(commands.router)
@@ -32,4 +34,3 @@ def shutdown():
 def root():
     return {"status": "running"}
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
