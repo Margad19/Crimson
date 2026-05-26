@@ -12,13 +12,14 @@ async function handleLogin(e) {
   });
 
   const data = await res.json();
+  console.log(data);  // ← add this temporarily, check console
+  saveSession(data);
 
   if (!res.ok) {
-    alert(data.detail); // "Invalid username or password"
+    alert(data.detail);
     return;
   }
 
-  localStorage.setItem("token", data.access_token);
-  localStorage.setItem("role", data.role);
+  saveSession(data);  // ← use session.js
   window.location.href = "/static/home.html";
 }

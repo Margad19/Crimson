@@ -96,12 +96,15 @@
   </nav>
 
   <div class="sidebar-footer">
-    <div class="avatar">MG</div>
-    <div>
-      <div class="user-name">margad</div>
-      <div class="user-role">engineer</div>
-    </div>
+  <div class="avatar" id="sidebar-avatar">??</div>
+  <div>
+    <div class="user-name" id="sidebar-username">...</div>
+    <div class="user-role" id="sidebar-role">...</div>
   </div>
+  <button onclick="logout()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--muted)">
+    <svg viewBox="0 0 16 16" width="16" height="16"><path d="M6 3H3v10h3M10 5l3 3-3 3M13 8H6"/></svg>
+  </button>
+</div>
 </aside>
 
 <!-- ════ MAIN ════ -->
@@ -371,6 +374,7 @@
 
   </div><!-- /content -->
 </div><!-- /main -->
+<script src="./js/session.js"></script>
 <script src="./js/home.js"></script>
 <script src="./js/dashboard.js"></script>
 <script src="./js/routers.js"></script>

@@ -4,7 +4,7 @@ async function loadUsers() {
   const tbody = document.getElementById("users-tbody");
   tbody.innerHTML = `<tr><td colspan="7" style="color:var(--muted);text-align:center">loading...</td></tr>`;
   try {
-    const users = await fetch(`${API}/users/`).then(r => r.json());
+    const users = await apiFetch(`${API}/users/`).then(r => r.json());
     renderUsersTable(users);
   } catch {
     tbody.innerHTML = `<tr><td colspan="7" style="color:#ef4444;text-align:center">Failed to load</td></tr>`;
@@ -36,7 +36,7 @@ function renderUsersTable(users) {
 async function deleteUser(id, name) {
   if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
   try {
-    const res = await fetch(`${API}/users/${id}`, { method: "DELETE" });
+    const res = await apiFetch(`${API}/users/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error();
     loadUsers();
   } catch { alert("Delete failed."); }
@@ -119,7 +119,7 @@ async function submitAddUser() {
   const payload = { username, password_hash: password, role, email, dob };
 
   try {
-    const res = await fetch(`${API}/users/`, {
+    const res = await apiFetch(`${API}/users/`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify(payload),

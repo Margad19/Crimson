@@ -10,37 +10,19 @@
 </head>
 <body>
   <div class="card">
-    <div class="brand">
-      <div class="brand-icon">
-        <svg viewBox="0 0 16 16">
-          <rect x="2" y="2" width="5" height="5" rx="0.5"/>
-          <rect x="9" y="2" width="5" height="5" rx="0.5"/>
-          <rect x="2" y="9" width="5" height="5" rx="0.5"/>
-          <circle cx="11.5" cy="11.5" r="2.5"/>
-        </svg>
-      </div>
-      <div>
-        <div class="brand-name">Attendance</div>
-        <div class="brand-sub">Router Automation</div>
-      </div>
-    </div>
 
-    <div class="tag">SECURE ACCESS</div>
-
-    <h1>Sign in</h1>
-    <p class="subtitle">Enter your credentials to continue.</p>
+    <h1>Нэвтрэлт</h1>
+    <p class="subtitle">Нэвтрэх нэр болон нууц үгээ оруулж нэвтэрнэ үү.</p>
 
     <form onsubmit="handleLogin(event)">
-
-    <form method="POST" action="/auth/login">
       <div class="field">
-        <label for="username">Username</label>
+        <label for="username">Нэвтрэх нэр</label>
         <div class="input-wrap">
           <input
             type="text"
             id="username"
             name="username"
-            placeholder="your_username"
+            placeholder="Бат"
             autocomplete="username"
             required
           />
@@ -49,7 +31,7 @@
       </div>
 
       <div class="field">
-        <label for="password">Password</label>
+        <label for="password">Нууц үг</label>
         <div class="input-wrap pw-wrap">
           <input
             type="password"
@@ -73,12 +55,13 @@
 
       <button type="submit">
         <svg viewBox="0 0 16 16"><path d="M10 8H3m5-3l3 3-3 3"/><path d="M6 3H13v10H6" stroke-linecap="round"/></svg>
-        Sign in
+        Нэвтрэх
       </button>
     </form>
 
     <p class="footer">Router Automation System &mdash; v1.0</p>
   </div>
+  <script src="./js/session.js"></script>
   <script src="./js/login.js"></script>
 </body>
 </html>

@@ -4,16 +4,26 @@ from sqlalchemy.orm import Session
 from database import get_db
 from schemas.schedule import ScheduleCreate, ScheduleOut
 from controllers import schedule_controller
+from dependencies.auth import get_current_user  # ← add
+from models.user import User                    # ← add
 
-router = APIRouter(prefix="/schedules", tags=["Schedules"])
+router = APIRouter(
+    prefix="/schedules",
+    tags=["Schedules"],
+    dependencies=[Depends(get_current_user)],   # ← add
+)
 
 @router.get("/", response_model=list[ScheduleOut])
 def list_schedules(db: Session = Depends(get_db)):
     return schedule_controller.get_all(db)
 
 @router.post("/", response_model=ScheduleOut)
-def add_schedule(data: ScheduleCreate, db: Session = Depends(get_db)):
-    return schedule_controller.create(data, db)
+def add_schedule(
+    data: ScheduleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),  # ← add
+):
+    return schedule_controller.create(data, current_user.id, db)
 
 @router.patch("/{schedule_id}/toggle", response_model=ScheduleOut)
 def toggle_schedule(schedule_id: int, db: Session = Depends(get_db)):

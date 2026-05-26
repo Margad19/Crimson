@@ -4,8 +4,13 @@ from sqlalchemy.orm import Session
 from database import get_db
 from schemas.device import DeviceCreate, DeviceOut
 from controllers import device_controller
+from dependencies.auth import get_current_user  # ← add
 
-router = APIRouter(prefix="/devices", tags=["Devices"])
+router = APIRouter(
+    prefix="/devices",
+    tags=["Devices"],
+    dependencies=[Depends(get_current_user)],  # ← add
+)
 
 @router.get("/", response_model=list[DeviceOut])
 def list_devices(db: Session = Depends(get_db)):

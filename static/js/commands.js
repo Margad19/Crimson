@@ -7,8 +7,8 @@ async function loadCommands() {
   tbody.innerHTML = `<tr><td colspan="5" style="color:var(--muted);text-align:center">loading...</td></tr>`;
   try {
     const [cmds, devs] = await Promise.all([
-      fetch(`${API}/commands/`).then(r => r.json()),
-      fetch(`${API}/devices/`).then(r => r.json()),
+      await apiFetch(`${API}/commands/`).then(r => r.json()),
+      await apiFetch(`${API}/devices/`).then(r => r.json()),
     ]);
     _deviceMap = Object.fromEntries(devs.map(d => [d.id, d.name]));
     renderCommandsTable(cmds);
@@ -41,7 +41,7 @@ function renderCommandsTable(cmds) {
 async function deleteCommand(id, name) {
   if (!confirm(`Delete "${name}"?`)) return;
   try {
-    const res = await fetch(`${API}/commands/${id}`, { method: "DELETE" });
+    const res = await apiFetch(`${API}/commands/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error();
     loadCommands();
   } catch {
@@ -56,7 +56,7 @@ async function showAddCommandModal() {
   // fetch devices for dropdown
   let devices = [];
   try {
-    devices = await fetch(`${API}/devices/`).then(r => r.json());
+    devices = await apiFetch(`${API}/devices/`).then(r => r.json());
   } catch { /* use empty */ }
 
   const modal = document.createElement("div");
@@ -120,7 +120,7 @@ async function submitAddCommand() {
   const payload = { name, command_text: text, description: desc, device_id: Number(deviceId) };
 
   try {
-    const res = await fetch(`${API}/commands/`, {
+    const res = await apiFetch(`${API}/commands/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

@@ -4,7 +4,7 @@ async function loadFtp() {
   const tbody = document.getElementById("ftp-tbody");
   tbody.innerHTML = `<tr><td colspan="5" style="color:var(--muted);text-align:center">loading...</td></tr>`;
   try {
-    const res = await fetch(`${API}/ftp/`);
+    const res = await apiFetch(`${API}/ftp/`);
     const data = await res.json();
     renderFtpTable(data);
   } catch (e) {
@@ -35,7 +35,7 @@ function renderFtpTable(servers) {
 async function deleteFtp(id, name) {
   if (!confirm(`Delete "${name}"?`)) return;
   try {
-    const res = await fetch(`${API}/ftp/${id}`, { method: "DELETE" });
+    const res = await apiFetch(`${API}/ftp/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error();
     loadFtp();
   } catch {
@@ -98,7 +98,7 @@ async function submitAddFtp() {
   };
 
   try {
-    const res = await fetch(`${API}/ftp/`, {
+    const res = await apiFetch(`${API}/ftp/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

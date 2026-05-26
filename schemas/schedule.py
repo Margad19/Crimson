@@ -6,7 +6,6 @@ class ScheduleCreate(BaseModel):
     router_id:  int
     command_id: int
     cron_expr:  str
-    user_id:    int
     ftp_id:     int | None = None
 
 class ScheduleOut(BaseModel):

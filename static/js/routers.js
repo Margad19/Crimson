@@ -11,15 +11,15 @@ async function loadRouters() {
 
   try {
     [allRouters, allDevices] = await Promise.all([
-      fetch(`${API}/routers/`).then(r => r.json()),
-      fetch(`${API}/devices/`).then(r => r.json()),
+      apiFetch(`${API}/routers/`).then(r => r.json()),
+      apiFetch(`${API}/devices/`).then(r => r.json()),
     ]);
 
     renderRoutersTable(allRouters, allDevices, []);
     syncTerminalDropdown(allRouters);
 
     // ping statuses after — slow
-    fetch(`${API}/routers/status`)
+    apiFetch(`${API}/routers/status`)
       .then(r => r.json())
       .then(statuses => {
         allStatuses = statuses;
@@ -91,7 +91,7 @@ function renderRoutersTable(routers, devices, statuses) {
 async function deleteRouter(id, name) {
   if (!confirm(`Delete router "${name}"?`)) return;
   try {
-    const res = await fetch(`${API}/routers/${id}`, { method: "DELETE" });
+    const res = await apiFetch(`${API}/routers/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error((await res.json()).detail);
     await loadRouters();
   } catch (err) {
@@ -193,7 +193,7 @@ async function submitAddRouter() {
   }
 
   try {
-    const res = await fetch(`${API}/routers/`, {
+    const res = await apiFetch(`${API}/routers/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

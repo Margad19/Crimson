@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from models.user import User
 from datetime import datetime, timedelta
 from jose import jwt
+import bcrypt
 import os
 
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
@@ -13,8 +14,7 @@ def login(username: str, password: str, db: Session):
     user = db.query(User).filter(User.username == username).first()
     if not user:
         return None
-    # TODO: replace with bcrypt.verify once passwords are hashed
-    if user.password_hash != password:
+    if not bcrypt.checkpw(password.encode(), user.password_hash.encode()):  # ← replace plaintext check
         return None
     payload = {
         "sub": str(user.id),

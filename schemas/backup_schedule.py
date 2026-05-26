@@ -6,7 +6,6 @@ class BackupScheduleCreate(BaseModel):
     router_id: int
     ftp_id:    int
     cron_expr: str
-    user_id:   int
 
 class BackupScheduleOut(BaseModel):
     id:         int

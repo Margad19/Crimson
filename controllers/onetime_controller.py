@@ -32,13 +32,13 @@ def schedule_onetime(onetime):
 def get_all(db: Session):
     return db.query(OneTime).all()
 
-def create(data: OneTimeCreate, db: Session):
+def create(data: OneTimeCreate, user_id: int, db: Session):  # ← add user_id param
     onetime = OneTime(
         name       = data.name,
         router_id  = data.router_id,
         command_id = data.command_id,
         time       = data.time,
-        created_by = data.user_id
+        created_by = user_id  # ← use param
     )
     db.add(onetime)
     db.commit()

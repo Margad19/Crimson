@@ -10,9 +10,9 @@ async function loadOnetime() {
   tbody.innerHTML = `<tr><td colspan="5" style="color:var(--muted);text-align:center">loading...</td></tr>`;
   try {
     const [jobs, routers, commands] = await Promise.all([
-      fetch(`${API}/onetime/`).then(r => r.json()),
-      fetch(`${API}/routers/`).then(r => r.json()),
-      fetch(`${API}/commands/`).then(r => r.json()),
+      apiFetch(`${API}/onetime/`).then(r => r.json()),
+      apiFetch(`${API}/routers/`).then(r => r.json()),
+      apiFetch(`${API}/commands/`).then(r => r.json()),
     ]);
     _otRouters  = routers;
     _otCommands = commands;
@@ -58,7 +58,7 @@ function renderOnetimeTable(jobs) {
 async function deleteOnetime(id, name) {
   if (!confirm(`Cancel "${name}"?`)) return;
   try {
-    const res = await fetch(`${API}/onetime/${id}`, { method: "DELETE" });
+    const res = await apiFetch(`${API}/onetime/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error();
     loadOnetime();
   } catch { alert("Delete failed."); }
@@ -161,7 +161,7 @@ async function submitOnetime() {
   };
 
   try {
-    const res = await fetch(`${API}/onetime/`, {
+    const res = await apiFetch(`${API}/onetime/`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify(payload),

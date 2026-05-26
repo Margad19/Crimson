@@ -4,8 +4,13 @@ from sqlalchemy.orm import Session
 from database import get_db
 from schemas.user import UserCreate, UserOut
 from controllers import user_controller
+from dependencies.auth import get_current_user
 
-router = APIRouter(prefix="/users", tags=["Users"])
+router = APIRouter(
+    prefix="/users",
+    tags=["Users"],
+    dependencies=[Depends(get_current_user)],  # ← protects every route
+)
 
 @router.get("/", response_model=list[UserOut])
 def list_users(db: Session = Depends(get_db)):

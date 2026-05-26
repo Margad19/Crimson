@@ -1,7 +1,20 @@
 // static/js/home.js
+requireAuth();
 const API    = "http://localhost:8000";
 const WS_API = "ws://localhost:8000";
 
+document.addEventListener("DOMContentLoaded", () => {
+  loadDashboard();
+  loadRoutersForTerminal();
+  loadUserInfo();
+});
+
+async function loadRoutersForTerminal() {
+  try {
+    const routers = await apiFetch(`${API}/routers/`).then(r => r.json());
+    syncTerminalDropdown(routers);  // ← routers.js function
+  } catch {}
+}
 const titles = {
   dashboard:'Dashboard', routers:'Routers', devices:'Device Types',
   ftp:'TFTP Servers', commands:'Commands', execute:'Execute Command',
@@ -28,16 +41,20 @@ function nav(el, id) {
 }
 
 // ════ TERMINAL ════════════════════════════════════════════════════════════════
-let ws        = null;
+let ws = null;
 let connected = false;
 
 function connectTerminal() {
-  // disconnect existing session first
   if (ws) { ws.close(); ws = null; }
 
   const sel  = document.getElementById("term-router-select");
   const id   = sel.value;
   const name = sel.options[sel.selectedIndex]?.text ?? "router";
+
+  if (!id) {  // ← add guard
+    alert("No router selected.");
+    return;
+  }
 
   const out = document.getElementById("term-output");
   const inp = document.getElementById("term-input");
@@ -45,7 +62,7 @@ function connectTerminal() {
   out.textContent = `Connecting to ${name}...\n`;
   setTermState("connecting", name);
 
-  ws = new WebSocket(`${WS_API}/terminal/${id}`);
+  ws = new WebSocket(`${WS_API}/terminal/${id}?token=${getToken()}`);
 
   ws.onopen = () => {
     // backend sends initial prompt after open — nothing to do here
@@ -146,6 +163,15 @@ function switchToTerminal(routerId) {
   connectTerminal();
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  loadDashboard();
-});
+async function loadUserInfo() {
+  const userId = getUserId();
+  if (!userId) return;  // ← add this guard
+
+  const res  = await apiFetch(`${API}/users/${userId}`);
+  if (!res) return;  // ← apiFetch returned undefined (401 redirect)
+  const user = await res.json();
+  if (!user || !user.username) return;  // ← guard against bad response
+  document.getElementById("sidebar-username").textContent = user.username;
+  document.getElementById("sidebar-role").textContent     = user.role;
+  document.getElementById("sidebar-avatar").textContent   = user.username.slice(0,2).toUpperCase();
+}

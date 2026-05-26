@@ -3,7 +3,7 @@ async function loadDevices() {
   const tbody = document.getElementById("devices-tbody");
   tbody.innerHTML = `<tr><td colspan="4" style="color:var(--muted);text-align:center;padding:18px">Loading...</td></tr>`;
   try {
-    const devices = await fetch(`${API}/devices/`).then(r => r.json());
+    const devices = await apiFetch(`${API}/devices/`).then(r => r.json());
     renderDevicesTable(devices);
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="4" style="color:var(--red);text-align:center;padding:18px">Failed to load devices</td></tr>`;
@@ -44,7 +44,7 @@ function escQ(str) {
 async function deleteDevice(id, name) {
   if (!confirm(`Delete device type "${name}"?\nAll routers using this type will lose their device reference.`)) return;
   try {
-    const res = await fetch(`${API}/devices/${id}`, { method: "DELETE" });
+    const res = await apiFetch(`${API}/devices/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error((await res.json()).detail);
     await loadDevices();
   } catch (err) {
@@ -129,7 +129,7 @@ async function submitAddDevice() {
     alert("Name, netmiko type, and backup command are required."); return;
   }
   try {
-    const res = await fetch(`${API}/devices/`, {
+    const res = await apiFetch(`${API}/devices/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -148,7 +148,7 @@ async function submitEditDevice(id) {
     alert("Name, netmiko type, and backup command are required."); return;
   }
   try {
-    const res = await fetch(`${API}/devices/${id}`, {
+    const res = await apiFetch(`${API}/devices/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

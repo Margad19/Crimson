@@ -32,13 +32,13 @@ def schedule_job(schedule):
 def get_all(db: Session):
     return db.query(Schedule).all()
 
-def create(data: ScheduleCreate, db: Session):
+def create(data: ScheduleCreate, user_id: int, db: Session):  # ← add user_id param
     schedule = Schedule(
         router_id  = data.router_id,
         command_id = data.command_id,
         cron_expr  = data.cron_expr,
         is_active  = True,
-        created_by = data.user_id
+        created_by = user_id  # ← use param
     )
     db.add(schedule)
     db.commit()

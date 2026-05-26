@@ -4,16 +4,26 @@ from sqlalchemy.orm import Session
 from database import get_db
 from schemas.backup_schedule import BackupScheduleCreate, BackupScheduleOut
 from controllers import backup_schedule_controller
+from dependencies.auth import get_current_user  # ← add
+from models.user import User                    # ← add
 
-router = APIRouter(prefix="/backup-schedules", tags=["Backup Schedules"])
+router = APIRouter(
+    prefix="/backup-schedules",
+    tags=["Backup Schedules"],
+    dependencies=[Depends(get_current_user)],   # ← add
+)
 
 @router.get("/", response_model=list[BackupScheduleOut])
 def list_schedules(db: Session = Depends(get_db)):
     return backup_schedule_controller.get_all(db)
 
 @router.post("/", response_model=BackupScheduleOut)
-def add_schedule(data: BackupScheduleCreate, db: Session = Depends(get_db)):
-    return backup_schedule_controller.create(data, db)
+def add_schedule(
+    data: BackupScheduleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),  # ← add
+):
+    return backup_schedule_controller.create(data, current_user.id, db)
 
 @router.patch("/{backup_id}/toggle", response_model=BackupScheduleOut)
 def toggle_schedule(backup_id: int, db: Session = Depends(get_db)):

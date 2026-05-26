@@ -7,7 +7,6 @@ class OneTimeCreate(BaseModel):
     router_id:  int
     command_id: int
     time:       datetime
-    user_id:    int
 
 class OneTimeOut(BaseModel):
     id:         int

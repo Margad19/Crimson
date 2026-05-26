@@ -5,7 +5,6 @@ from datetime import datetime
 class ExecuteRequest(BaseModel):
     router_id: int
     command_id: int
-    user_id: int
 
 class ExecuteOut(BaseModel):
     router_name: str

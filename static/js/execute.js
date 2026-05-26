@@ -1,15 +1,13 @@
 // static/js/execute.js
 
-const EXEC_USER_ID = 1; // swap for session user when auth is added
-
 let _execRouters  = [];
 let _execCommands = [];
 
 async function loadExecute() {
   try {
     const [routers, commands] = await Promise.all([
-      fetch(`${API}/routers/`).then(r => r.json()),
-      fetch(`${API}/commands/`).then(r => r.json()),
+      apiFetch(`${API}/routers/`).then(r => r.json()),
+      apiFetch(`${API}/commands/`).then(r => r.json()),
     ]);
     _execRouters  = routers;
     _execCommands = commands;
@@ -57,7 +55,7 @@ async function runExecute() {
   document.getElementById("exec-run-btn").disabled = true;
 
   try {
-    const res = await fetch(`${API}/execute/`, {
+    const res = await apiFetch(`${API}/execute/`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ router_id: routerId, command_id: cmdId, user_id: EXEC_USER_ID }),

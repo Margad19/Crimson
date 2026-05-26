@@ -5,8 +5,8 @@ const BACKUP_USER_ID = 1; // swap for session user when auth is added
 async function loadBackup() {
   try {
     const [routers, ftps] = await Promise.all([
-      fetch(`${API}/routers/`).then(r => r.json()),
-      fetch(`${API}/ftp/`).then(r => r.json()),
+      apiFetch(`${API}/routers/`).then(r => r.json()),
+      apiFetch(`${API}/ftp/`).then(r => r.json()),
     ]);
 
     const routerSel = document.getElementById("backup-router-sel");
@@ -39,7 +39,7 @@ async function runBackup() {
   document.getElementById("backup-run-btn").disabled = true;
 
   try {
-    const res = await fetch(`${API}/backup/`, {
+    const res = await apiFetch(`${API}/backup/`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ router_id: routerId, ftp_id: ftpId, user_id: BACKUP_USER_ID }),

@@ -2,16 +2,16 @@
 async function loadDashboard() {
   try {
     const [routers, schedules, backupSchedules, onetime] = await Promise.all([
-      fetch(`${API}/routers/`).then(r => r.json()),
-      fetch(`${API}/schedules/`).then(r => r.json()),
-      fetch(`${API}/backup-schedules/`).then(r => r.json()),
-      fetch(`${API}/onetime/`).then(r => r.json()),
+      apiFetch(`${API}/routers/`).then(r => r.json()),
+      apiFetch(`${API}/schedules/`).then(r => r.json()),
+      apiFetch(`${API}/backup-schedules/`).then(r => r.json()),
+      apiFetch(`${API}/onetime/`).then(r => r.json()),
     ]);
 
     renderStatCards(routers, [], schedules, backupSchedules);
     renderUpcoming(onetime, routers);
 
-    fetch(`${API}/routers/status`)
+    apiFetch(`${API}/routers/status`)
       .then(r => r.json())
       .then(statuses => {
         const online  = statuses.filter(r => r.online).length;

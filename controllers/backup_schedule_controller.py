@@ -7,13 +7,13 @@ from scheduler import scheduler, schedule_backup
 def get_all(db: Session):
     return db.query(Backup).all()
 
-def create(data: BackupScheduleCreate, db: Session):
+def create(data: BackupScheduleCreate, user_id: int, db: Session):
     backup = Backup(
         router_id  = data.router_id,
         ftp_id     = data.ftp_id,
         cron_expr  = data.cron_expr,
         is_active  = True,
-        created_by = data.user_id
+        created_by = user_id
     )
     db.add(backup)
     db.commit()

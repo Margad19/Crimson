@@ -34,11 +34,11 @@ async function loadSchedules() {
   setBakTbody(`<tr><td colspan="5" style="color:var(--muted);text-align:center">loading...</td></tr>`);
   try {
     const [cmdScheds, bakScheds, routers, commands, ftps] = await Promise.all([
-      fetch(`${API}/schedules/`).then(r => r.json()),
-      fetch(`${API}/backup-schedules/`).then(r => r.json()),
-      fetch(`${API}/routers/`).then(r => r.json()),
-      fetch(`${API}/commands/`).then(r => r.json()),
-      fetch(`${API}/ftp/`).then(r => r.json()),
+      apiFetch(`${API}/schedules/`).then(r => r.json()),
+      apiFetch(`${API}/backup-schedules/`).then(r => r.json()),
+      apiFetch(`${API}/routers/`).then(r => r.json()),
+      apiFetch(`${API}/commands/`).then(r => r.json()),
+      apiFetch(`${API}/ftp/`).then(r => r.json()),
     ]);
     _schedRouters  = routers;
     _schedCommands = commands;
@@ -106,23 +106,23 @@ function renderBakSchedules(scheds) {
 
 // ── toggle / delete (command) ─────────────────────────────────────────────────
 async function toggleCmdSchedule(id) {
-  try { const r = await fetch(`${API}/schedules/${id}/toggle`, {method:"PATCH"}); if(!r.ok) throw 0; loadSchedules(); }
+  try { const r = await apiFetch(`${API}/schedules/${id}/toggle`, {method:"PATCH"}); if(!r.ok) throw 0; loadSchedules(); }
   catch { alert("Toggle failed."); }
 }
 async function deleteCmdSchedule(id) {
   if (!confirm("Delete this schedule?")) return;
-  try { const r = await fetch(`${API}/schedules/${id}`, {method:"DELETE"}); if(!r.ok) throw 0; loadSchedules(); }
+  try { const r = await apiFetch(`${API}/schedules/${id}`, {method:"DELETE"}); if(!r.ok) throw 0; loadSchedules(); }
   catch { alert("Delete failed."); }
 }
 
 // ── toggle / delete (backup) ──────────────────────────────────────────────────
 async function toggleBakSchedule(id) {
-  try { const r = await fetch(`${API}/backup-schedules/${id}/toggle`, {method:"PATCH"}); if(!r.ok) throw 0; loadSchedules(); }
+  try { const r = await apiFetch(`${API}/backup-schedules/${id}/toggle`, {method:"PATCH"}); if(!r.ok) throw 0; loadSchedules(); }
   catch { alert("Toggle failed."); }
 }
 async function deleteBakSchedule(id) {
   if (!confirm("Delete this backup schedule?")) return;
-  try { const r = await fetch(`${API}/backup-schedules/${id}`, {method:"DELETE"}); if(!r.ok) throw 0; loadSchedules(); }
+  try { const r = await apiFetch(`${API}/backup-schedules/${id}`, {method:"DELETE"}); if(!r.ok) throw 0; loadSchedules(); }
   catch { alert("Delete failed."); }
 }
 
@@ -264,7 +264,7 @@ async function submitCmdSchedule() {
   const cron      = buildCron("csm");
   if (!routerId || !commandId || !cron) { alert("Fill all fields."); return; }
   try {
-    const res = await fetch(`${API}/schedules/`, {
+    const res = await apiFetch(`${API}/schedules/`, {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({router_id:routerId, command_id:commandId, cron_expr:cron, user_id:SCHED_USER_ID}),
     });
@@ -327,7 +327,7 @@ async function submitBakSchedule() {
   const cron     = buildCron("bsm");
   if (!routerId || !ftpId || !cron) { alert("Fill all fields."); return; }
   try {
-    const res = await fetch(`${API}/backup-schedules/`, {
+    const res = await apiFetch(`${API}/backup-schedules/`, {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({router_id:routerId, ftp_id:ftpId, cron_expr:cron, user_id:SCHED_USER_ID}),
     });
