@@ -101,8 +101,13 @@
     <div class="user-name" id="sidebar-username">...</div>
     <div class="user-role" id="sidebar-role">...</div>
   </div>
-  <button onclick="logout()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--muted)">
-    <svg viewBox="0 0 16 16" width="16" height="16"><path d="M6 3H3v10h3M10 5l3 3-3 3M13 8H6"/></svg>
+  <button onclick="logout()" title="Logout"
+    style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--muted)">
+    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 3H3v10h3"/>
+      <polyline points="10 5 13 8 10 11"/>
+      <line x1="13" y1="8" x2="5" y2="8"/>
+    </svg>
   </button>
 </div>
 </aside>

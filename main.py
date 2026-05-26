@@ -4,6 +4,7 @@ from routes import routers, devices, commands, execute, users, ftp, backup, back
 from scheduler import scheduler, load_jobs
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 
 app = FastAPI(title="Router Automation API")
 
@@ -40,4 +41,4 @@ def shutdown():
 
 @app.get("/")
 def root():
-    return {"status": "running"}
+    return RedirectResponse(url="/static/login.html")
