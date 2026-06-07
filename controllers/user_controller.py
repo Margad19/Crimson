@@ -14,7 +14,13 @@ def create_user(data: UserCreate, db: Session):
     hashed = bcrypt.hashpw(data.password_hash.encode(), bcrypt.gensalt()).decode()
     dump = data.model_dump()
     dump["password_hash"] = hashed  # ← replace plaintext with hash
-    user = User(**dump)
+    user = User(
+        username=data.username,
+        password_hash=hashed,
+        role=data.role,
+        email=data.email,
+        dob=data.dob,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
