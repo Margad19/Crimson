@@ -1,253 +1,715 @@
-let map, dm;
-let shapes = [];
-let counters = {};
+// map.js — OpenLayers + Crimson backend integration
+// Auth is handled by session.js (apiFetch, getToken, requireAuth)
+const API = 'http://127.0.0.1:8000';
 
-const COLORS = { polyline:'#58a6ff', polygon:'#3fb950', marker:'#f85149', circle:'#d29922' };
+requireAuth(); // redirect to login if no token
 
-function startApp() {
-  const key = document.getElementById('apikey').value.trim();
-  if (!key || key.length < 20) { document.getElementById('err').style.display='block'; return; }
+// ── Map state ─────────────────────────────────────────────────────
+let map, vectorSource, vectorLayer;
+let drawInteraction = null;
+let activeMode = null;
 
-  window.initMap = initMap;
-  const s = document.createElement('script');
-  s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=drawing,geometry&callback=initMap`;
-  s.async = true;
-  s.onerror = () => {
-    document.getElementById('err').style.display = 'block';
-    document.getElementById('setup').style.display = 'flex';
-    document.getElementById('app').classList.remove('on');
-  };
-  document.head.appendChild(s);
+// feature registry: featureId -> { dbId, layer, type }
+const registry = {};
 
-  document.getElementById('setup').style.display = 'none';
-  document.getElementById('app').classList.add('on');
-  setStatus('Loading map...');
+// NODE TYPE CONFIG
+const NODE_TYPES = {
+  router:   { label: 'Router',      icon: '⬡', color: '#58a6ff' },
+  switch:   { label: 'Switch',      icon: '▣', color: '#3fb950' },
+  joint:    { label: 'Муфт/Joint',  icon: '◉', color: '#d29922' },
+  building: { label: 'Building',    icon: '⌂', color: '#bc8cff' },
+  site:     { label: 'Site',        icon: '▲', color: '#ff7b72' },
+  client:   { label: 'Client',      icon: '●', color: '#79c0ff' },
+};
+
+// CABLE TYPE CONFIG
+const CABLE_TYPES = {
+  fiber:    { label: 'Fiber Optic', color: '#58a6ff', dash: null },
+  ftp:      { label: 'FTP Cable',   color: '#d29922', dash: [6,3] },
+  backbone: { label: 'Backbone',    color: '#ff7b72', dash: [10,4] },
+};
+
+// ── Tile sources ──────────────────────────────────────────────────
+const TILES = {
+  dark: new ol.layer.Tile({
+    source: new ol.source.XYZ({
+      url: 'https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      attributions: '© CARTO'
+    })
+  }),
+  roadmap:   new ol.layer.Tile({ source: new ol.source.OSM() }),
+  satellite: new ol.layer.Tile({
+    source: new ol.source.XYZ({
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      attributions: '© Esri'
+    })
+  }),
+  terrain: new ol.layer.Tile({
+    source: new ol.source.XYZ({
+      url: 'https://tile.opentopomap.org/{z}/{x}/{y}.png',
+      attributions: '© OpenTopoMap'
+    })
+  }),
+};
+
+// ── Style ─────────────────────────────────────────────────────────
+function makeStyle(layer, subtype, selected = false) {
+  const sw = selected ? 3 : 2;
+  const selFill = selected ? '44' : '22';
+
+  if (layer === 'node') {
+    const cfg = NODE_TYPES[subtype] || NODE_TYPES.client;
+    return new ol.style.Style({
+      image: new ol.style.Circle({
+        radius: selected ? 9 : 7,
+        fill: new ol.style.Fill({ color: cfg.color }),
+        stroke: new ol.style.Stroke({ color: selected ? '#fff' : '#0d1117', width: sw })
+      }),
+      text: new ol.style.Text({
+        text: cfg.icon,
+        font: '11px Inter',
+        fill: new ol.style.Fill({ color: '#0d1117' }),
+        offsetY: 0
+      })
+    });
+  }
+
+  if (layer === 'cable') {
+    const cfg = CABLE_TYPES[subtype] || CABLE_TYPES.fiber;
+    return new ol.style.Style({
+      stroke: new ol.style.Stroke({
+        color: cfg.color,
+        width: selected ? 4 : 2.5,
+        lineDash: cfg.dash || undefined
+      })
+    });
+  }
+
+  if (layer === 'zone') {
+    return new ol.style.Style({
+      fill: new ol.style.Fill({ color: '#3fb950' + selFill }),
+      stroke: new ol.style.Stroke({ color: '#3fb950', width: sw, lineDash: [8,4] })
+    });
+  }
+
+  return new ol.style.Style();
 }
 
+// ── Init ──────────────────────────────────────────────────────────
 function initMap() {
-  map = new google.maps.Map(document.getElementById('map'), {
-    center: { lat: 47.9077, lng: 106.8832 },
-    zoom: 13,
-    mapTypeId: 'roadmap',
-    mapTypeControl: false,
-    streetViewControl: false,
-    fullscreenControl: false,
-    zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_CENTER },
-    styles: [
-      { featureType:'water',      elementType:'geometry',          stylers:[{color:'#1c2a3a'}] },
-      { featureType:'landscape',  elementType:'geometry',          stylers:[{color:'#1a1f29'}] },
-      { featureType:'road',       elementType:'geometry',          stylers:[{color:'#21262d'}] },
-      { featureType:'road',       elementType:'geometry.stroke',   stylers:[{color:'#30363d'}] },
-      { featureType:'poi',        elementType:'geometry',          stylers:[{color:'#161b22'}] },
-      { featureType:'transit',    elementType:'geometry',          stylers:[{color:'#161b22'}] },
-      { featureType:'administrative', elementType:'geometry.stroke', stylers:[{color:'#30363d'}] },
-      { elementType:'labels.text.fill', stylers:[{color:'#8b949e'}] },
-      { elementType:'labels.text.stroke', stylers:[{color:'#0d1117'}] },
-    ]
+  vectorSource = new ol.source.Vector();
+  vectorLayer  = new ol.layer.Vector({
+    source: vectorSource,
+    style: (f) => makeStyle(f.get('layer'), f.get('subtype'))
   });
 
-  dm = new google.maps.drawing.DrawingManager({
-    drawingMode: null,
-    drawingControl: false,
-    polylineOptions: { strokeColor: COLORS.polyline, strokeOpacity:1, strokeWeight:3, editable:true, draggable:true },
-    polygonOptions:  { fillColor: COLORS.polygon, fillOpacity:.15, strokeColor: COLORS.polygon, strokeWeight:2, editable:true, draggable:true },
-    markerOptions:   { draggable:true },
-    circleOptions:   { fillColor: COLORS.circle, fillOpacity:.15, strokeColor: COLORS.circle, strokeWeight:2, editable:true, draggable:true }
-  });
-  dm.setMap(map);
-
-  google.maps.event.addListener(dm, 'overlaycomplete', function(e) {
-    counters[e.type] = (counters[e.type] || 0) + 1;
-    const id = `${e.type}_${counters[e.type]}`;
-    const shape = { id, type: e.type, overlay: e.overlay };
-    shapes.push(shape);
-
-    google.maps.event.addListener(e.overlay, 'click', () => selectShape(id));
-
-    if (e.type === 'polyline' || e.type === 'polygon') {
-      const path = e.overlay.getPath();
-      google.maps.event.addListener(path, 'set_at',    () => refreshItem(id));
-      google.maps.event.addListener(path, 'insert_at', () => refreshItem(id));
-      google.maps.event.addListener(path, 'remove_at', () => refreshItem(id));
-    }
-    if (e.type === 'circle') {
-      google.maps.event.addListener(e.overlay, 'radius_changed', () => refreshItem(id));
-      google.maps.event.addListener(e.overlay, 'center_changed', () => refreshItem(id));
-    }
-    if (e.type === 'marker') {
-      google.maps.event.addListener(e.overlay, 'dragend', () => refreshItem(id));
-      // Auto-return to pan after placing marker
-      setTool(null, document.querySelector('[data-mode="null"]'));
-    }
-
-    addToList(shape);
-    setStatus(`Added ${id}`);
+  map = new ol.Map({
+    target: 'map',
+    layers: [TILES.dark, vectorLayer],
+    view: new ol.View({
+      center: ol.proj.fromLonLat([106.8832, 47.9077]),
+      zoom: 13
+    }),
+    controls: ol.control.defaults.defaults({ attributionOptions: { collapsible: true } })
   });
 
-  google.maps.event.addListener(map, 'mousemove', function(e) {
-    document.getElementById('cursor-pos').textContent =
-      `${e.latLng.lat().toFixed(5)}, ${e.latLng.lng().toFixed(5)}`;
+  map.on('pointermove', (e) => {
+    const [lng, lat] = ol.proj.toLonLat(e.coordinate);
+    document.getElementById('cursor-pos').textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    map.getTargetElement().style.cursor =
+      map.hasFeatureAtPixel(e.pixel) && !drawInteraction ? 'pointer' : '';
   });
 
-  setStatus('Map ready — select a tool above');
+  // Click = select feature
+  map.on('click', (e) => {
+    if (drawInteraction) return;
+    let hit = false;
+    map.forEachFeatureAtPixel(e.pixel, (f) => {
+      if (!hit) { openEditPanel(f); hit = true; }
+      return true;
+    });
+    if (!hit) closePanel();
+  });
+
+  document.querySelector('[data-type="dark"]').classList.add('active');
+  loadAll();
 }
 
+// ── Load all from backend ─────────────────────────────────────────
+async function loadAll() {
+  setStatus('Loading network data…');
+  await Promise.all([loadNodes(), loadCables(), loadZones()]);
+  setStatus(`Loaded ${vectorSource.getFeatures().length} features`);
+}
+
+async function loadNodes() {
+  try {
+    const res = await apiFetch(`${API}/points/`);
+    if (!res || !res.ok) return;
+    const data = await res.json();
+    data.forEach(n => addNodeFeature(n));
+    renderList();
+  } catch(e) { console.error('loadNodes:', e); }
+}
+
+async function loadCables() {
+  try {
+    const res = await apiFetch(`${API}/cable-segments/`);
+    if (!res || !res.ok) return;
+    const data = await res.json();
+    data.forEach(c => addCableFeature(c));
+    renderList();
+  } catch(e) { console.error('loadCables:', e); }
+}
+
+async function loadZones() {
+  try {
+    const res = await apiFetch(`${API}/coverage-zones/`);
+    if (!res || !res.ok) return;
+    const data = await res.json();
+    data.forEach(z => addZoneFeature(z));
+    renderList();
+  } catch(e) { console.error('loadZones:', e); }
+}
+
+// ── Feature builders from DB records ─────────────────────────────
+function wktPointToOl(wkt) {
+  // "POINT(106.88 47.90)"
+  const m = wkt.match(/POINT\(([^ ]+) ([^ )]+)\)/);
+  if (!m) return null;
+  return ol.proj.fromLonLat([parseFloat(m[1]), parseFloat(m[2])]);
+}
+
+function wktLineToOl(wkt) {
+  const inner = wkt.replace(/^LINESTRING\(/, '').replace(/\)$/, '');
+  return inner.split(',').map(p => {
+    const [x, y] = p.trim().split(' ');
+    return ol.proj.fromLonLat([parseFloat(x), parseFloat(y)]);
+  });
+}
+
+function wktPolyToOl(wkt) {
+  const inner = wkt.replace(/^POLYGON\(\(/, '').replace(/\)\)$/, '');
+  return [inner.split(',').map(p => {
+    const [x, y] = p.trim().split(' ');
+    return ol.proj.fromLonLat([parseFloat(x), parseFloat(y)]);
+  })];
+}
+
+function addNodeFeature(n) {
+  if (!n.location) return;
+  const coord = wktPointToOl(n.location);
+  if (!coord) return;
+  const f = new ol.Feature({ geometry: new ol.geom.Point(coord) });
+  const fid = `node_${n.id}`;
+  f.setId(fid);
+  f.set('layer', 'node');
+  f.set('subtype', n.node_type || 'client');
+  f.set('dbId', n.id);
+  f.set('name', n.name);
+  f.set('description', n.description);
+  vectorSource.addFeature(f);
+  registry[fid] = { dbId: n.id, layer: 'node', subtype: n.node_type, name: n.name };
+}
+
+function addCableFeature(c) {
+  if (!c.path) return;
+  const coords = wktLineToOl(c.path);
+  if (!coords || coords.length < 2) return;
+  const f = new ol.Feature({ geometry: new ol.geom.LineString(coords) });
+  const fid = `cable_${c.id}`;
+  f.setId(fid);
+  f.set('layer', 'cable');
+  f.set('subtype', c.cable_type || 'fiber');
+  f.set('dbId', c.id);
+  f.set('name', c.name);
+  f.set('core_count', c.core_count);
+  vectorSource.addFeature(f);
+  registry[fid] = { dbId: c.id, layer: 'cable', subtype: c.cable_type, name: c.name };
+}
+
+function addZoneFeature(z) {
+  if (!z.area) return;
+  const rings = wktPolyToOl(z.area);
+  if (!rings) return;
+  const f = new ol.Feature({ geometry: new ol.geom.Polygon(rings) });
+  const fid = `zone_${z.id}`;
+  f.setId(fid);
+  f.set('layer', 'zone');
+  f.set('subtype', 'zone');
+  f.set('dbId', z.id);
+  f.set('name', z.name);
+  vectorSource.addFeature(f);
+  registry[fid] = { dbId: z.id, layer: 'zone', subtype: 'zone', name: z.name };
+}
+
+// ── Draw tools ────────────────────────────────────────────────────
 function setTool(mode, btn) {
-  if (!dm) return;
-  dm.setDrawingMode(mode === 'null' ? null : mode);
+  if (drawInteraction) { map.removeInteraction(drawInteraction); drawInteraction = null; }
   document.querySelectorAll('.t-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  activeMode = mode;
+  closePanel();
+
+  if (!mode) { setStatus('Pan — click a feature to edit'); return; }
+
+  const geomMap = {
+    node:  'Point',
+    cable: 'LineString',
+    zone:  'Polygon',
+  };
+
+  drawInteraction = new ol.interaction.Draw({
+    source: vectorSource,
+    type: geomMap[mode]
+  });
+
+  drawInteraction.on('drawend', async (e) => {
+    const feature = e.feature;
+    const geom = feature.getGeometry();
+    map.removeInteraction(drawInteraction);
+    drawInteraction = null;
+    document.querySelectorAll('.t-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('[data-mode="null"]').classList.add('active');
+    activeMode = null;
+
+    // Prompt user to fill details then save
+    openCreatePanel(feature, geom, mode);
+  });
 
   const tips = {
-    null: 'Pan mode — click shapes to select',
-    polyline: 'Line: click to add points, double-click to finish',
-    polygon: 'Area: click to add points, double-click to close',
-    marker: 'Click map to place a pin',
-    circle: 'Click and drag to draw a circle'
+    node:  'Click to place a network node',
+    cable: 'Click points, double-click to finish cable route',
+    zone:  'Click points, double-click to close coverage zone',
   };
-  setStatus(tips[mode] || '');
+  setStatus(tips[mode]);
 }
 
 function setMapType(type, btn) {
   if (!map) return;
-  map.setMapTypeId(type);
+  map.getLayers().setAt(0, TILES[type]);
   document.querySelectorAll('.mt-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 }
 
-function coordsSummary(shape) {
-  const o = shape.overlay, t = shape.type;
-  if (t === 'marker') {
-    const p = o.getPosition();
-    return `${p.lat().toFixed(6)}, ${p.lng().toFixed(6)}`;
+// ── Sidebar panels ────────────────────────────────────────────────
+let selectedFeature = null;
+
+function closePanel() {
+  if (selectedFeature) {
+    selectedFeature.setStyle(undefined); // reset to layer style fn
+    selectedFeature = null;
   }
-  if (t === 'circle') {
-    const c = o.getCenter();
-    return `${c.lat().toFixed(5)}, ${c.lng().toFixed(5)}\nr = ${(o.getRadius()/1000).toFixed(3)} km`;
-  }
-  const path = o.getPath(), n = path.getLength();
-  if (n === 0) return 'empty';
-  let lines = [];
-  for (let i = 0; i < Math.min(n, 3); i++) {
-    const pt = path.getAt(i);
-    lines.push(`[${pt.lat().toFixed(5)}, ${pt.lng().toFixed(5)}]`);
-  }
-  if (n > 3) lines.push(`  … +${n-3} more pts`);
-  return lines.join('\n');
+  document.getElementById('panel').innerHTML = '';
+  document.getElementById('panel').style.display = 'none';
 }
 
-function fullGeometry(shape) {
-  const o = shape.overlay, t = shape.type;
-  if (t === 'marker') {
-    const p = o.getPosition();
-    return { type:'Point', coordinates:[round(p.lng()), round(p.lat())] };
-  }
-  if (t === 'circle') {
-    const c = o.getCenter();
-    return { type:'Circle', center:[round(c.lng()), round(c.lat())], radius:Math.round(o.getRadius()) };
-  }
-  const path = o.getPath();
-  const coords = [];
-  for (let i = 0; i < path.getLength(); i++) {
-    const pt = path.getAt(i);
-    coords.push([round(pt.lng()), round(pt.lat())]);
-  }
-  if (t === 'polygon' && coords.length > 0) { coords.push(coords[0]); return { type:'Polygon', coordinates:[coords] }; }
-  return { type:'LineString', coordinates:coords };
-}
+function openEditPanel(feature) {
+  selectedFeature = feature;
+  const layer = feature.get('layer');
+  const subtype = feature.get('subtype');
+  const dbId = feature.get('dbId');
+  const name = feature.get('name') || '';
+  const desc = feature.get('description') || '';
+  const cores = feature.get('core_count') || '';
 
-function round(n) { return parseFloat(n.toFixed(6)); }
+  // highlight
+  feature.setStyle(makeStyle(layer, subtype, true));
 
-function addToList(shape) {
-  const list = document.getElementById('list');
-  const el = document.createElement('div');
-  el.className = 's-item';
-  el.id = `item-${shape.id}`;
-  el.onclick = () => selectShape(shape.id);
-  el.innerHTML = `
-    <div class="s-row">
-      <div class="s-badge">
-        <div class="s-dot d-${shape.type === 'polyline' ? 'poly' : shape.type}"></div>
-        <span>${shape.id}</span>
+  const panel = document.getElementById('panel');
+  panel.style.display = 'flex';
+
+  if (layer === 'node') {
+    panel.innerHTML = `
+      <div class="panel-title">Edit Node <span class="panel-id">#${dbId}</span></div>
+      <label>Name<input id="p-name" value="${escHtml(name)}"></label>
+      <label>Description<input id="p-desc" value="${escHtml(desc)}"></label>
+      <label>Type
+        <select id="p-ntype">
+          ${Object.entries(NODE_TYPES).map(([k,v]) =>
+            `<option value="${k}" ${subtype===k?'selected':''}>${v.icon} ${v.label}</option>`
+          ).join('')}
+        </select>
+      </label>
+      <div class="panel-actions">
+        <button class="btn-save" onclick="saveNode(${dbId})">Save</button>
+        <button class="btn-del"  onclick="deleteNode(${dbId}, '${feature.getId()}')">Delete</button>
       </div>
-      <button class="s-del" onclick="deleteShape('${shape.id}',event)" title="Delete">✕</button>
-    </div>
-    <div class="s-coords" id="c-${shape.id}">${coordsSummary(shape)}</div>
-  `;
-  list.appendChild(el);
-  updateCount();
+    `;
+  } else if (layer === 'cable') {
+    panel.innerHTML = `
+      <div class="panel-title">Edit Cable <span class="panel-id">#${dbId}</span></div>
+      <label>Name<input id="p-name" value="${escHtml(name)}"></label>
+      <label>Core Count<input id="p-cores" type="number" value="${cores}" placeholder="e.g. 24"></label>
+      <label>Type
+        <select id="p-ctype">
+          ${Object.entries(CABLE_TYPES).map(([k,v]) =>
+            `<option value="${k}" ${subtype===k?'selected':''}>${v.label}</option>`
+          ).join('')}
+        </select>
+      </label>
+      <div class="panel-actions">
+        <button class="btn-save" onclick="saveCable(${dbId})">Save</button>
+        <button class="btn-del"  onclick="deleteCable(${dbId}, '${feature.getId()}')">Delete</button>
+      </div>
+    `;
+  } else if (layer === 'zone') {
+    panel.innerHTML = `
+      <div class="panel-title">Edit Zone <span class="panel-id">#${dbId}</span></div>
+      <label>Name<input id="p-name" value="${escHtml(name)}"></label>
+      <div class="panel-actions">
+        <button class="btn-save" onclick="saveZone(${dbId})">Save</button>
+        <button class="btn-del"  onclick="deleteZone(${dbId}, '${feature.getId()}')">Delete</button>
+      </div>
+    `;
+  }
 }
 
-function refreshItem(id) {
-  const shape = shapes.find(s => s.id === id);
-  if (!shape) return;
-  const el = document.getElementById(`c-${id}`);
-  if (el) el.textContent = coordsSummary(shape);
+function openCreatePanel(feature, geom, mode) {
+  const panel = document.getElementById('panel');
+  panel.style.display = 'flex';
+
+  if (mode === 'node') {
+    panel.innerHTML = `
+      <div class="panel-title">New Node</div>
+      <label>Name<input id="p-name" placeholder="e.g. Router-01"></label>
+      <label>Description<input id="p-desc" placeholder="optional"></label>
+      <label>Type
+        <select id="p-ntype">
+          ${Object.entries(NODE_TYPES).map(([k,v]) =>
+            `<option value="${k}">${v.icon} ${v.label}</option>`
+          ).join('')}
+        </select>
+      </label>
+      <div class="panel-actions">
+        <button class="btn-save" onclick="createNode(this)">Add Node</button>
+        <button class="btn-cancel" onclick="cancelDraw('${feature.ol_uid}')">Cancel</button>
+      </div>
+    `;
+    panel.dataset.pendingFeature = feature.ol_uid;
+    panel.dataset.pendingGeom = JSON.stringify(ol.proj.toLonLat(geom.getCoordinates()));
+    panel.dataset.pendingMode = 'node';
+    panel.dataset.featureRef = feature.ol_uid;
+    // store feature ref globally
+    window._pendingFeature = feature;
+
+  } else if (mode === 'cable') {
+    const coords = geom.getCoordinates().map(c => ol.proj.toLonLat(c));
+    panel.innerHTML = `
+      <div class="panel-title">New Cable</div>
+      <label>Name<input id="p-name" placeholder="e.g. Fiber-BLK01"></label>
+      <label>Core Count<input id="p-cores" type="number" placeholder="e.g. 24"></label>
+      <label>Type
+        <select id="p-ctype">
+          ${Object.entries(CABLE_TYPES).map(([k,v]) =>
+            `<option value="${k}">${v.label}</option>`
+          ).join('')}
+        </select>
+      </label>
+      <div class="panel-actions">
+        <button class="btn-save" onclick="createCable(this)">Add Cable</button>
+        <button class="btn-cancel" onclick="cancelDraw()">Cancel</button>
+      </div>
+    `;
+    window._pendingFeature = feature;
+    window._pendingCoords = coords;
+
+  } else if (mode === 'zone') {
+    const coords = geom.getCoordinates()[0].map(c => ol.proj.toLonLat(c));
+    panel.innerHTML = `
+      <div class="panel-title">New Zone</div>
+      <label>Name<input id="p-name" placeholder="e.g. District-A"></label>
+      <div class="panel-actions">
+        <button class="btn-save" onclick="createZone(this)">Add Zone</button>
+        <button class="btn-cancel" onclick="cancelDraw()">Cancel</button>
+      </div>
+    `;
+    window._pendingFeature = feature;
+    window._pendingCoords = coords;
+  }
 }
 
-function selectShape(id) {
-  document.querySelectorAll('.s-item').forEach(e => e.classList.remove('sel'));
-  const el = document.getElementById(`item-${id}`);
-  if (el) { el.classList.add('sel'); el.scrollIntoView({ block:'nearest' }); }
+function cancelDraw() {
+  if (window._pendingFeature) {
+    vectorSource.removeFeature(window._pendingFeature);
+    window._pendingFeature = null;
+  }
+  closePanel();
 }
 
-function deleteShape(id, event) {
-  if (event) event.stopPropagation();
-  const idx = shapes.findIndex(s => s.id === id);
-  if (idx === -1) return;
-  shapes[idx].overlay.setMap(null);
-  shapes.splice(idx, 1);
-  const el = document.getElementById(`item-${id}`);
-  if (el) el.remove();
-  updateCount();
-  setStatus(`Deleted ${id}`);
+// ── Create ────────────────────────────────────────────────────────
+async function createNode() {
+  const name    = document.getElementById('p-name').value.trim();
+  const desc    = document.getElementById('p-desc').value.trim();
+  const ntype   = document.getElementById('p-ntype').value;
+  const feature = window._pendingFeature;
+  if (!name) { setStatus('Name required'); return; }
+
+  const [lng, lat] = ol.proj.toLonLat(feature.getGeometry().getCoordinates());
+
+  try {
+    const res = await apiFetch(`${API}/points/`, {
+      method: 'POST',
+      body: JSON.stringify({ name, description: desc, node_type: ntype, longitude: lng, latitude: lat, details: null })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const n = await res.json();
+
+    // Replace temp feature with proper one
+    vectorSource.removeFeature(feature);
+    window._pendingFeature = null;
+    addNodeFeature(n);
+    renderList();
+    closePanel();
+    setStatus(`Added node: ${n.name}`);
+  } catch(e) { setStatus(`Error: ${e.message}`); }
 }
 
-function clearAll() {
-  if (shapes.length === 0) return;
-  if (!confirm(`Delete all ${shapes.length} shape(s)?`)) return;
-  shapes.forEach(s => s.overlay.setMap(null));
-  shapes = [];
-  document.getElementById('list').innerHTML = '';
-  updateCount();
-  setStatus('All shapes cleared');
+async function createCable() {
+  const name   = document.getElementById('p-name').value.trim();
+  const cores  = parseInt(document.getElementById('p-cores').value) || null;
+  const ctype  = document.getElementById('p-ctype').value;
+  const coords = window._pendingCoords;
+  if (!name) { setStatus('Name required'); return; }
+
+  const coordinates = coords.map(([lng, lat]) => ({ longitude: lng, latitude: lat }));
+
+  try {
+    const res = await apiFetch(`${API}/cable-segments/`, {
+      method: 'POST',
+      body: JSON.stringify({ name, core_count: cores, cable_type: ctype, coordinates, details: null })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const c = await res.json();
+
+    vectorSource.removeFeature(window._pendingFeature);
+    window._pendingFeature = null;
+    addCableFeature(c);
+    renderList();
+    closePanel();
+    setStatus(`Added cable: ${c.name}`);
+  } catch(e) { setStatus(`Error: ${e.message}`); }
 }
 
-function updateCount() {
-  document.getElementById('cnt').textContent = shapes.length;
+async function createZone() {
+  const name   = document.getElementById('p-name').value.trim();
+  const coords = window._pendingCoords;
+  if (!name) { setStatus('Name required'); return; }
+
+  const coordinates = coords.map(([lng, lat]) => ({ longitude: lng, latitude: lat }));
+
+  try {
+    const res = await apiFetch(`${API}/coverage-zones/`, {
+      method: 'POST',
+      body: JSON.stringify({ name, coordinates, details: null })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const z = await res.json();
+
+    vectorSource.removeFeature(window._pendingFeature);
+    window._pendingFeature = null;
+    addZoneFeature(z);
+    renderList();
+    closePanel();
+    setStatus(`Added zone: ${z.name}`);
+  } catch(e) { setStatus(`Error: ${e.message}`); }
 }
 
-function setStatus(msg) {
-  document.getElementById('status').textContent = msg;
+// ── Update ────────────────────────────────────────────────────────
+async function saveNode(dbId) {
+  const name  = document.getElementById('p-name').value.trim();
+  const desc  = document.getElementById('p-desc').value.trim();
+  const ntype = document.getElementById('p-ntype').value;
+
+  // Get existing coords from feature
+  const fid = `node_${dbId}`;
+  const feature = vectorSource.getFeatureById(fid);
+  const [lng, lat] = ol.proj.toLonLat(feature.getGeometry().getCoordinates());
+
+  try {
+    const res = await apiFetch(`${API}/points/${dbId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name, description: desc, node_type: ntype, longitude: lng, latitude: lat, details: null })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const n = await res.json();
+
+    feature.set('name', n.name);
+    feature.set('subtype', n.node_type);
+    feature.set('description', n.description);
+    feature.setStyle(makeStyle('node', n.node_type));
+    registry[fid] = { ...registry[fid], subtype: n.node_type, name: n.name };
+    renderList();
+    closePanel();
+    setStatus(`Saved: ${n.name}`);
+  } catch(e) { setStatus(`Error: ${e.message}`); }
 }
 
-function buildGeoJSON() {
-  return {
-    type: 'FeatureCollection',
-    features: shapes.map(s => ({
-      type: 'Feature',
-      properties: { id: s.id, shapeType: s.type },
-      geometry: fullGeometry(s)
-    }))
-  };
-}
+async function saveCable(dbId) {
+  const name  = document.getElementById('p-name').value.trim();
+  const cores = parseInt(document.getElementById('p-cores').value) || null;
+  const ctype = document.getElementById('p-ctype').value;
 
-function exportGeoJSON() {
-  if (shapes.length === 0) { setStatus('No shapes to export'); return; }
-  const data = JSON.stringify(buildGeoJSON(), null, 2);
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([data], { type:'application/json' }));
-  a.download = 'drawing.geojson';
-  a.click();
-  setStatus(`Exported ${shapes.length} shape(s) as GeoJSON`);
-}
-
-function copyJSON() {
-  if (shapes.length === 0) { setStatus('No shapes to copy'); return; }
-  const data = JSON.stringify(buildGeoJSON(), null, 2);
-  navigator.clipboard.writeText(data).then(() => {
-    setStatus('GeoJSON copied to clipboard!');
-  }).catch(() => {
-    prompt('Copy this GeoJSON:', data);
+  const fid = `cable_${dbId}`;
+  const feature = vectorSource.getFeatureById(fid);
+  const coords = feature.getGeometry().getCoordinates().map(c => {
+    const [lng, lat] = ol.proj.toLonLat(c);
+    return { longitude: lng, latitude: lat };
   });
+
+  try {
+    const res = await apiFetch(`${API}/cable-segments/${dbId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name, core_count: cores, cable_type: ctype, coordinates: coords, details: null })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const c = await res.json();
+
+    feature.set('name', c.name);
+    feature.set('subtype', c.cable_type);
+    feature.set('core_count', c.core_count);
+    feature.setStyle(makeStyle('cable', c.cable_type));
+    registry[fid] = { ...registry[fid], subtype: c.cable_type, name: c.name };
+    renderList();
+    closePanel();
+    setStatus(`Saved: ${c.name}`);
+  } catch(e) { setStatus(`Error: ${e.message}`); }
 }
+
+async function saveZone(dbId) {
+  const name = document.getElementById('p-name').value.trim();
+
+  const fid = `zone_${dbId}`;
+  const feature = vectorSource.getFeatureById(fid);
+  const coords = feature.getGeometry().getCoordinates()[0].map(c => {
+    const [lng, lat] = ol.proj.toLonLat(c);
+    return { longitude: lng, latitude: lat };
+  });
+
+  try {
+    const res = await apiFetch(`${API}/coverage-zones/${dbId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name, coordinates: coords, details: null })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const z = await res.json();
+
+    feature.set('name', z.name);
+    registry[fid] = { ...registry[fid], name: z.name };
+    renderList();
+    closePanel();
+    setStatus(`Saved: ${z.name}`);
+  } catch(e) { setStatus(`Error: ${e.message}`); }
+}
+
+// ── Delete ────────────────────────────────────────────────────────
+async function deleteNode(dbId, fid) {
+  if (!confirm('Delete this node?')) return;
+  try {
+    const res = await apiFetch(`${API}/points/${dbId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(await res.text());
+    removeFeature(fid);
+    setStatus(`Deleted node #${dbId}`);
+  } catch(e) { setStatus(`Error: ${e.message}`); }
+}
+
+async function deleteCable(dbId, fid) {
+  if (!confirm('Delete this cable segment?')) return;
+  try {
+    const res = await apiFetch(`${API}/cable-segments/${dbId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(await res.text());
+    removeFeature(fid);
+    setStatus(`Deleted cable #${dbId}`);
+  } catch(e) { setStatus(`Error: ${e.message}`); }
+}
+
+async function deleteZone(dbId, fid) {
+  if (!confirm('Delete this zone?')) return;
+  try {
+    const res = await apiFetch(`${API}/coverage-zones/${dbId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(await res.text());
+    removeFeature(fid);
+    setStatus(`Deleted zone #${dbId}`);
+  } catch(e) { setStatus(`Error: ${e.message}`); }
+}
+
+function removeFeature(fid) {
+  const f = vectorSource.getFeatureById(fid);
+  if (f) vectorSource.removeFeature(f);
+  delete registry[fid];
+  renderList();
+  closePanel();
+}
+
+// ── Sidebar list ──────────────────────────────────────────────────
+function renderList() {
+  const list = document.getElementById('list');
+  const features = vectorSource.getFeatures();
+  const cnt = features.length;
+  document.getElementById('cnt').textContent = cnt;
+
+  if (!cnt) {
+    list.innerHTML = '<div class="empty-list">No features loaded.<br>Draw or load from backend.</div>';
+    return;
+  }
+
+  // Group by layer
+  const nodes  = features.filter(f => f.get('layer') === 'node');
+  const cables = features.filter(f => f.get('layer') === 'cable');
+  const zones  = features.filter(f => f.get('layer') === 'zone');
+
+  let html = '';
+
+  if (nodes.length) {
+    html += `<div class="list-group-label">Nodes (${nodes.length})</div>`;
+    nodes.forEach(f => {
+      const cfg = NODE_TYPES[f.get('subtype')] || NODE_TYPES.client;
+      html += `<div class="s-item" onclick="openEditPanel(vectorSource.getFeatureById('${f.getId()}'))">
+        <div class="s-badge">
+          <span class="s-dot" style="background:${cfg.color}"></span>
+          <span>${cfg.icon} ${escHtml(f.get('name') || f.getId())}</span>
+        </div>
+        <div class="s-sub">${cfg.label}</div>
+      </div>`;
+    });
+  }
+
+  if (cables.length) {
+    html += `<div class="list-group-label">Cables (${cables.length})</div>`;
+    cables.forEach(f => {
+      const cfg = CABLE_TYPES[f.get('subtype')] || CABLE_TYPES.fiber;
+      const cores = f.get('core_count') ? ` · ${f.get('core_count')}c` : '';
+      html += `<div class="s-item" onclick="openEditPanel(vectorSource.getFeatureById('${f.getId()}'))">
+        <div class="s-badge">
+          <span class="s-dot" style="background:${cfg.color}"></span>
+          <span>${escHtml(f.get('name') || f.getId())}</span>
+        </div>
+        <div class="s-sub">${cfg.label}${cores}</div>
+      </div>`;
+    });
+  }
+
+  if (zones.length) {
+    html += `<div class="list-group-label">Zones (${zones.length})</div>`;
+    zones.forEach(f => {
+      html += `<div class="s-item" onclick="openEditPanel(vectorSource.getFeatureById('${f.getId()}'))">
+        <div class="s-badge">
+          <span class="s-dot" style="background:#3fb950"></span>
+          <span>⬡ ${escHtml(f.get('name') || f.getId())}</span>
+        </div>
+        <div class="s-sub">Coverage zone</div>
+      </div>`;
+    });
+  }
+
+  list.innerHTML = html;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function setStatus(msg) { document.getElementById('status').textContent = msg; }
+
+// ── Boot ──────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', initMap);

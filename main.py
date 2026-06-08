@@ -1,6 +1,6 @@
 # main.py
 from fastapi import FastAPI
-from routes import routers, devices, commands, execute, users, ftp, backup, backup_schedule, schedules, onetime, terminal, auth
+from routes import routers, devices, commands, execute, users, ftp, backup, backup_schedule, schedules, onetime, terminal, auth, points, cable, coverage_zones
 from scheduler import scheduler, load_jobs
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,6 +29,9 @@ app.include_router(schedules.router)
 app.include_router(onetime.router)
 app.include_router(terminal.router)
 app.include_router(auth.router)
+app.include_router(points.router)
+app.include_router(cable.router)
+app.include_router(coverage_zones.router)
 
 @app.on_event("startup")
 def startup():

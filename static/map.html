@@ -3,87 +3,86 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Map Drawing Tool</title>
+  <title>Crimson · Network Map</title>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9/ol.css">
   <link rel="stylesheet" href="./css/map.css">
 </head>
 <body>
 
-<!-- ── Setup ── -->
-<div id="setup">
-  <div class="card">
-    <div>
-      <h1>🗺 Map Drawing Tool</h1>
-    </div>
-    <p>Draw polylines, polygons, markers, and circles on Google Maps. Exports GeoJSON. Default center: Ulaanbaatar.</p>
-    <input type="text" id="apikey" placeholder="AIzaSy..." autocomplete="off" spellcheck="false"
-      onkeydown="if(event.key==='Enter')startApp()" />
-    <div class="error" id="err">❌ Failed to load — check your key and enabled APIs.</div>
-    <button class="btn-primary" onclick="startApp()">Load Map →</button>
-    <p class="hint">
-      Need a key? <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a><br>
-      Enable: <strong>Maps JavaScript API</strong> (includes Drawing library)
-    </p>
-  </div>
-</div>
-
-<!-- ── App ── -->
 <div id="app">
   <div id="sidebar">
+
     <div class="sb-head">
-      <h2>Drawing Tools</h2>
+      <h2>Network Map</h2>
       <span id="cursor-pos"></span>
     </div>
 
-    <div class="section">
-      <div class="sec-label">Tools</div>
+    <!-- Draw tools -->
+    <div class="sb-section">
+      <div class="sec-label">Draw</div>
       <div class="tool-grid">
         <button class="t-btn active" data-mode="null" onclick="setTool(null,this)">
           <span class="t-icon">✋</span><span class="t-label">Pan</span>
         </button>
-        <button class="t-btn" data-mode="polyline" onclick="setTool('polyline',this)">
-          <span class="t-icon">╱</span><span class="t-label">Line</span>
+        <button class="t-btn" data-mode="node" onclick="setTool('node',this)">
+          <span class="t-icon">📍</span><span class="t-label">Node</span>
         </button>
-        <button class="t-btn" data-mode="polygon" onclick="setTool('polygon',this)">
-          <span class="t-icon">⬡</span><span class="t-label">Area</span>
+        <button class="t-btn" data-mode="cable" onclick="setTool('cable',this)">
+          <span class="t-icon">╱</span><span class="t-label">Cable</span>
         </button>
-        <button class="t-btn" data-mode="marker" onclick="setTool('marker',this)">
-          <span class="t-icon">📍</span><span class="t-label">Pin</span>
-        </button>
-        <button class="t-btn" data-mode="circle" onclick="setTool('circle',this)">
-          <span class="t-icon">◎</span><span class="t-label">Circle</span>
+        <button class="t-btn" data-mode="zone" onclick="setTool('zone',this)">
+          <span class="t-icon">⬡</span><span class="t-label">Zone</span>
         </button>
       </div>
     </div>
 
-    <div class="section">
-      <div class="sec-label">Map Type</div>
+    <!-- Map type -->
+    <div class="sb-section">
+      <div class="sec-label">Basemap</div>
       <div class="mt-row">
-        <button class="mt-btn active" onclick="setMapType('roadmap',this)">Road</button>
-        <button class="mt-btn" onclick="setMapType('satellite',this)">Sat</button>
-        <button class="mt-btn" onclick="setMapType('hybrid',this)">Hybrid</button>
-        <button class="mt-btn" onclick="setMapType('terrain',this)">Terrain</button>
+        <button class="mt-btn" data-type="roadmap"   onclick="setMapType('roadmap',this)">Road</button>
+        <button class="mt-btn" data-type="satellite" onclick="setMapType('satellite',this)">Sat</button>
+        <button class="mt-btn" data-type="terrain"   onclick="setMapType('terrain',this)">Topo</button>
+        <button class="mt-btn active" data-type="dark" onclick="setMapType('dark',this)">Dark</button>
       </div>
     </div>
 
+    <!-- Legend -->
+    <div class="sb-section">
+      <div class="sec-label">Legend</div>
+      <div class="legend">
+        <div class="leg-row"><span class="leg-dot" style="background:#58a6ff"></span>Router / Switch</div>
+        <div class="leg-row"><span class="leg-dot" style="background:#d29922"></span>Муфт / Joint</div>
+        <div class="leg-row"><span class="leg-dot" style="background:#bc8cff"></span>Building</div>
+        <div class="leg-row"><span class="leg-dot" style="background:#ff7b72"></span>Site</div>
+        <div class="leg-row"><span class="leg-dot" style="background:#79c0ff"></span>Client</div>
+        <div class="leg-row"><span class="leg-line" style="background:#58a6ff"></span>Fiber optic</div>
+        <div class="leg-row"><span class="leg-dash" style="--c:#d29922"></span>FTP cable</div>
+        <div class="leg-row"><span class="leg-dash" style="--c:#ff7b72"></span>Backbone</div>
+        <div class="leg-row"><span class="leg-dot" style="background:#3fb950;border-radius:2px;width:10px;height:6px"></span>Coverage zone</div>
+      </div>
+    </div>
+
+    <!-- Feature list -->
     <div class="list-head">
-      <span class="list-label">Shapes &nbsp;<span id="cnt">0</span></span>
-      <button class="btn-clear" onclick="clearAll()">Clear All</button>
+      <span class="list-label">Features &nbsp;<span id="cnt">0</span></span>
     </div>
 
     <div id="list"></div>
 
-    <div id="status">Select a tool to start drawing</div>
+    <div id="status">Connecting to backend…</div>
 
-    <div class="sb-foot">
-      <button class="btn-out" onclick="exportGeoJSON()">↓ GeoJSON</button>
-      <button class="btn-out" onclick="copyJSON()">⎘ Copy JSON</button>
-    </div>
+    <!-- Edit / Create panel -->
+    <div id="panel"></div>
+
   </div>
 
   <div id="map"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/ol@9/dist/ol.js"></script>
+<script src="./js/session.js"></script>
 <script src="./js/map.js"></script>
 </body>
 </html>
