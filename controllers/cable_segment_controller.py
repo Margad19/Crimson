@@ -46,7 +46,7 @@ def create_segment(data: CableSegmentCreate, db: Session) -> dict:
                 :core_count,
                 :cable_type,
                 ST_GeomFromText(:wkt, 4326),
-                :details::jsonb
+                CAST(:details AS jsonb)
             )
             RETURNING id, name, core_count, cable_type,
                       ST_AsText(path) AS path,
@@ -73,7 +73,7 @@ def update_segment(segment_id: int, data: CableSegmentCreate, db: Session) -> di
                 core_count = :core_count,
                 cable_type = :cable_type,
                 path       = ST_GeomFromText(:wkt, 4326),
-                details    = :details::jsonb
+                details    = CAST(:details AS jsonb)
             WHERE id = :id
             RETURNING id, name, core_count, cable_type,
                       ST_AsText(path) AS path,

@@ -138,70 +138,72 @@ function initMap() {
 // ── Load all from backend ─────────────────────────────────────────
 async function loadAll() {
   setStatus('Loading network data…');
-  await Promise.all([loadNodes(), loadCables(), loadZones()]);
-  setStatus(`Loaded ${vectorSource.getFeatures().length} features`);
+  vectorSource.clear();
+  Object.keys(registry).forEach(k => delete registry[k]);
+
+  try {
+    const [nodes, cables, zones] = await Promise.all([
+      fetchLayerData(`${API}/points/`, 'nodes'),
+      fetchLayerData(`${API}/cable-segments/`, 'cables'),
+      fetchLayerData(`${API}/coverage-zones/`, 'zones'),
+    ]);
+
+    nodes.forEach(n => addNodeFeature(n));
+    cables.forEach(c => addCableFeature(c));
+    zones.forEach(z => addZoneFeature(z));
+    renderList();
+    setStatus(`Loaded ${vectorSource.getFeatures().length} features`);
+  } catch (e) {
+    console.error('loadAll:', e);
+    setStatus(`Load error: ${e.message}`);
+  }
 }
 
-async function loadNodes() {
-  try {
-    const res = await apiFetch(`${API}/points/`);
-    if (!res || !res.ok) return;
-    const data = await res.json();
-    data.forEach(n => addNodeFeature(n));
-    renderList();
-  } catch(e) { console.error('loadNodes:', e); }
-}
-
-async function loadCables() {
-  try {
-    const res = await apiFetch(`${API}/cable-segments/`);
-    if (!res || !res.ok) return;
-    const data = await res.json();
-    data.forEach(c => addCableFeature(c));
-    renderList();
-  } catch(e) { console.error('loadCables:', e); }
-}
-
-async function loadZones() {
-  try {
-    const res = await apiFetch(`${API}/coverage-zones/`);
-    if (!res || !res.ok) return;
-    const data = await res.json();
-    data.forEach(z => addZoneFeature(z));
-    renderList();
-  } catch(e) { console.error('loadZones:', e); }
+async function fetchLayerData(url, label) {
+  const res = await apiFetch(url);
+  if (!res || !res.ok) {
+    const msg = res ? await res.text() : 'no response';
+    throw new Error(`${label}: ${msg}`);
+  }
+  return res.json();
 }
 
 // ── Feature builders from DB records ─────────────────────────────
+function stripWkt(wkt) {
+  return String(wkt).replace(/^SRID=\d+;/, '');
+}
+
 function wktPointToOl(wkt) {
-  // "POINT(106.88 47.90)"
-  const m = wkt.match(/POINT\(([^ ]+) ([^ )]+)\)/);
+  const m = stripWkt(wkt).match(/POINT\s*\(\s*([-\d.eE+]+)\s+([-\d.eE+]+)\s*\)/);
   if (!m) return null;
   return ol.proj.fromLonLat([parseFloat(m[1]), parseFloat(m[2])]);
 }
 
 function wktLineToOl(wkt) {
-  const inner = wkt.replace(/^LINESTRING\(/, '').replace(/\)$/, '');
-  return inner.split(',').map(p => {
-    const [x, y] = p.trim().split(' ');
-    return ol.proj.fromLonLat([parseFloat(x), parseFloat(y)]);
-  });
+  const inner = stripWkt(wkt).replace(/^LINESTRING\s*\(/, '').replace(/\)\s*$/, '');
+  const coords = inner.split(',').map(p => {
+    const parts = p.trim().split(/\s+/);
+    return ol.proj.fromLonLat([parseFloat(parts[0]), parseFloat(parts[1])]);
+  }).filter(c => !Number.isNaN(c[0]) && !Number.isNaN(c[1]));
+  return coords.length >= 2 ? coords : null;
 }
 
 function wktPolyToOl(wkt) {
-  const inner = wkt.replace(/^POLYGON\(\(/, '').replace(/\)\)$/, '');
-  return [inner.split(',').map(p => {
-    const [x, y] = p.trim().split(' ');
-    return ol.proj.fromLonLat([parseFloat(x), parseFloat(y)]);
-  })];
+  const inner = stripWkt(wkt).replace(/^POLYGON\s*\(\(/, '').replace(/\)\)\s*$/, '');
+  const ring = inner.split(',').map(p => {
+    const parts = p.trim().split(/\s+/);
+    return ol.proj.fromLonLat([parseFloat(parts[0]), parseFloat(parts[1])]);
+  }).filter(c => !Number.isNaN(c[0]) && !Number.isNaN(c[1]));
+  return ring.length >= 3 ? [ring] : null;
 }
 
 function addNodeFeature(n) {
-  if (!n.location) return;
+  if (!n.location) { console.warn('node missing location', n.id); return false; }
   const coord = wktPointToOl(n.location);
-  if (!coord) return;
-  const f = new ol.Feature({ geometry: new ol.geom.Point(coord) });
+  if (!coord) { console.warn('node WKT parse failed', n.id, n.location); return false; }
   const fid = `node_${n.id}`;
+  if (vectorSource.getFeatureById(fid)) return true;
+  const f = new ol.Feature({ geometry: new ol.geom.Point(coord) });
   f.setId(fid);
   f.set('layer', 'node');
   f.set('subtype', n.node_type || 'client');
@@ -210,14 +212,16 @@ function addNodeFeature(n) {
   f.set('description', n.description);
   vectorSource.addFeature(f);
   registry[fid] = { dbId: n.id, layer: 'node', subtype: n.node_type, name: n.name };
+  return true;
 }
 
 function addCableFeature(c) {
-  if (!c.path) return;
+  if (!c.path) { console.warn('cable missing path', c.id); return false; }
   const coords = wktLineToOl(c.path);
-  if (!coords || coords.length < 2) return;
-  const f = new ol.Feature({ geometry: new ol.geom.LineString(coords) });
+  if (!coords) { console.warn('cable WKT parse failed', c.id, c.path); return false; }
   const fid = `cable_${c.id}`;
+  if (vectorSource.getFeatureById(fid)) return true;
+  const f = new ol.Feature({ geometry: new ol.geom.LineString(coords) });
   f.setId(fid);
   f.set('layer', 'cable');
   f.set('subtype', c.cable_type || 'fiber');
@@ -226,14 +230,16 @@ function addCableFeature(c) {
   f.set('core_count', c.core_count);
   vectorSource.addFeature(f);
   registry[fid] = { dbId: c.id, layer: 'cable', subtype: c.cable_type, name: c.name };
+  return true;
 }
 
 function addZoneFeature(z) {
-  if (!z.area) return;
+  if (!z.area) { console.warn('zone missing area', z.id); return false; }
   const rings = wktPolyToOl(z.area);
-  if (!rings) return;
-  const f = new ol.Feature({ geometry: new ol.geom.Polygon(rings) });
+  if (!rings) { console.warn('zone WKT parse failed', z.id, z.area); return false; }
   const fid = `zone_${z.id}`;
+  if (vectorSource.getFeatureById(fid)) return true;
+  const f = new ol.Feature({ geometry: new ol.geom.Polygon(rings) });
   f.setId(fid);
   f.set('layer', 'zone');
   f.set('subtype', 'zone');
@@ -241,6 +247,7 @@ function addZoneFeature(z) {
   f.set('name', z.name);
   vectorSource.addFeature(f);
   registry[fid] = { dbId: z.id, layer: 'zone', subtype: 'zone', name: z.name };
+  return true;
 }
 
 // ── Draw tools ────────────────────────────────────────────────────
@@ -263,10 +270,15 @@ function setTool(mode, btn) {
     source: vectorSource,
     type: geomMap[mode]
   });
+  map.addInteraction(drawInteraction);
 
   drawInteraction.on('drawend', async (e) => {
     const feature = e.feature;
     const geom = feature.getGeometry();
+    // temp style attrs so the sketch is visible before save
+    feature.set('layer', mode);
+    feature.set('subtype', mode === 'node' ? 'client' : mode === 'cable' ? 'fiber' : 'zone');
+    feature.setId(`pending_${mode}_${ol.util.getUid(feature)}`);
     map.removeInteraction(drawInteraction);
     drawInteraction = null;
     document.querySelectorAll('.t-btn').forEach(b => b.classList.remove('active'));
@@ -304,7 +316,36 @@ function closePanel() {
   document.getElementById('panel').style.display = 'none';
 }
 
+function openFeatureById(fid) {
+  if (!fid) return;
+  openEditPanel(vectorSource.getFeatureById(fid));
+}
+
+function reopenCreatePanel(feature) {
+  const mode = feature.get('layer');
+  const geom = feature.getGeometry();
+  window._pendingFeature = feature;
+  if (mode === 'cable') {
+    window._pendingCoords = geom.getCoordinates().map(c => ol.proj.toLonLat(c));
+  } else if (mode === 'zone') {
+    window._pendingCoords = geom.getCoordinates()[0].map(c => ol.proj.toLonLat(c));
+  }
+  openCreatePanel(feature, geom, mode);
+}
+
 function openEditPanel(feature) {
+  if (!feature) {
+    setStatus('Feature not found');
+    return;
+  }
+  if (!feature.get('dbId')) {
+    reopenCreatePanel(feature);
+    return;
+  }
+
+  if (selectedFeature && selectedFeature !== feature) {
+    selectedFeature.setStyle(undefined);
+  }
   selectedFeature = feature;
   const layer = feature.get('layer');
   const subtype = feature.get('subtype');
@@ -444,6 +485,7 @@ async function createNode() {
   const ntype   = document.getElementById('p-ntype').value;
   const feature = window._pendingFeature;
   if (!name) { setStatus('Name required'); return; }
+  if (!feature || !feature.getGeometry()) { setStatus('Draw a node on the map first'); return; }
 
   const [lng, lat] = ol.proj.toLonLat(feature.getGeometry().getCoordinates());
 
@@ -458,7 +500,9 @@ async function createNode() {
     // Replace temp feature with proper one
     vectorSource.removeFeature(feature);
     window._pendingFeature = null;
-    addNodeFeature(n);
+    if (!addNodeFeature(n)) {
+      throw new Error('Saved but map could not display it — try refreshing');
+    }
     renderList();
     closePanel();
     setStatus(`Added node: ${n.name}`);
@@ -471,6 +515,7 @@ async function createCable() {
   const ctype  = document.getElementById('p-ctype').value;
   const coords = window._pendingCoords;
   if (!name) { setStatus('Name required'); return; }
+  if (!coords || coords.length < 2) { setStatus('Draw a cable route on the map first'); return; }
 
   const coordinates = coords.map(([lng, lat]) => ({ longitude: lng, latitude: lat }));
 
@@ -484,7 +529,10 @@ async function createCable() {
 
     vectorSource.removeFeature(window._pendingFeature);
     window._pendingFeature = null;
-    addCableFeature(c);
+    window._pendingCoords = null;
+    if (!addCableFeature(c)) {
+      throw new Error('Saved but map could not display it — try refreshing');
+    }
     renderList();
     closePanel();
     setStatus(`Added cable: ${c.name}`);
@@ -495,6 +543,7 @@ async function createZone() {
   const name   = document.getElementById('p-name').value.trim();
   const coords = window._pendingCoords;
   if (!name) { setStatus('Name required'); return; }
+  if (!coords || coords.length < 3) { setStatus('Draw a zone with at least 3 points'); return; }
 
   const coordinates = coords.map(([lng, lat]) => ({ longitude: lng, latitude: lat }));
 
@@ -508,7 +557,10 @@ async function createZone() {
 
     vectorSource.removeFeature(window._pendingFeature);
     window._pendingFeature = null;
-    addZoneFeature(z);
+    window._pendingCoords = null;
+    if (!addZoneFeature(z)) {
+      throw new Error('Saved but map could not display it — try refreshing');
+    }
     renderList();
     closePanel();
     setStatus(`Added zone: ${z.name}`);
@@ -520,11 +572,14 @@ async function saveNode(dbId) {
   const name  = document.getElementById('p-name').value.trim();
   const desc  = document.getElementById('p-desc').value.trim();
   const ntype = document.getElementById('p-ntype').value;
+  const feature = selectedFeature;
+  if (!feature || !feature.getGeometry()) {
+    setStatus('Feature not found — click it on the map again');
+    return;
+  }
 
-  // Get existing coords from feature
-  const fid = `node_${dbId}`;
-  const feature = vectorSource.getFeatureById(fid);
   const [lng, lat] = ol.proj.toLonLat(feature.getGeometry().getCoordinates());
+  const fid = feature.getId();
 
   try {
     const res = await apiFetch(`${API}/points/${dbId}`, {
@@ -549,9 +604,13 @@ async function saveCable(dbId) {
   const name  = document.getElementById('p-name').value.trim();
   const cores = parseInt(document.getElementById('p-cores').value) || null;
   const ctype = document.getElementById('p-ctype').value;
+  const feature = selectedFeature;
+  if (!feature || !feature.getGeometry()) {
+    setStatus('Feature not found — click it on the map again');
+    return;
+  }
 
-  const fid = `cable_${dbId}`;
-  const feature = vectorSource.getFeatureById(fid);
+  const fid = feature.getId();
   const coords = feature.getGeometry().getCoordinates().map(c => {
     const [lng, lat] = ol.proj.toLonLat(c);
     return { longitude: lng, latitude: lat };
@@ -578,9 +637,13 @@ async function saveCable(dbId) {
 
 async function saveZone(dbId) {
   const name = document.getElementById('p-name').value.trim();
+  const feature = selectedFeature;
+  if (!feature || !feature.getGeometry()) {
+    setStatus('Feature not found — click it on the map again');
+    return;
+  }
 
-  const fid = `zone_${dbId}`;
-  const feature = vectorSource.getFeatureById(fid);
+  const fid = feature.getId();
   const coords = feature.getGeometry().getCoordinates()[0].map(c => {
     const [lng, lat] = ol.proj.toLonLat(c);
     return { longitude: lng, latitude: lat };
@@ -664,10 +727,11 @@ function renderList() {
     html += `<div class="list-group-label">Nodes (${nodes.length})</div>`;
     nodes.forEach(f => {
       const cfg = NODE_TYPES[f.get('subtype')] || NODE_TYPES.client;
-      html += `<div class="s-item" onclick="openEditPanel(vectorSource.getFeatureById('${f.getId()}'))">
+      const label = f.get('dbId') ? escHtml(f.get('name') || `#${f.get('dbId')}`) : `${escHtml(f.get('name') || 'unsaved')} (not saved)`;
+      html += `<div class="s-item" onclick="openFeatureById('${f.getId()}')">
         <div class="s-badge">
           <span class="s-dot" style="background:${cfg.color}"></span>
-          <span>${cfg.icon} ${escHtml(f.get('name') || f.getId())}</span>
+          <span>${cfg.icon} ${label}</span>
         </div>
         <div class="s-sub">${cfg.label}</div>
       </div>`;
@@ -679,10 +743,11 @@ function renderList() {
     cables.forEach(f => {
       const cfg = CABLE_TYPES[f.get('subtype')] || CABLE_TYPES.fiber;
       const cores = f.get('core_count') ? ` · ${f.get('core_count')}c` : '';
-      html += `<div class="s-item" onclick="openEditPanel(vectorSource.getFeatureById('${f.getId()}'))">
+      const label = f.get('dbId') ? escHtml(f.get('name') || `#${f.get('dbId')}`) : `${escHtml(f.get('name') || 'unsaved')} (not saved)`;
+      html += `<div class="s-item" onclick="openFeatureById('${f.getId()}')">
         <div class="s-badge">
           <span class="s-dot" style="background:${cfg.color}"></span>
-          <span>${escHtml(f.get('name') || f.getId())}</span>
+          <span>${label}</span>
         </div>
         <div class="s-sub">${cfg.label}${cores}</div>
       </div>`;
@@ -692,10 +757,11 @@ function renderList() {
   if (zones.length) {
     html += `<div class="list-group-label">Zones (${zones.length})</div>`;
     zones.forEach(f => {
-      html += `<div class="s-item" onclick="openEditPanel(vectorSource.getFeatureById('${f.getId()}'))">
+      const label = f.get('dbId') ? escHtml(f.get('name') || `#${f.get('dbId')}`) : `${escHtml(f.get('name') || 'unsaved')} (not saved)`;
+      html += `<div class="s-item" onclick="openFeatureById('${f.getId()}')">
         <div class="s-badge">
           <span class="s-dot" style="background:#3fb950"></span>
-          <span>⬡ ${escHtml(f.get('name') || f.getId())}</span>
+          <span>⬡ ${label}</span>
         </div>
         <div class="s-sub">Coverage zone</div>
       </div>`;

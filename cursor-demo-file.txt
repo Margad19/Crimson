@@ -1,0 +1,5 @@
+Hello! This file was created by Cursor Agent to show that editing works.
+
+You can delete this file anytime — it was just a test.
+
+Created: 2026-06-09

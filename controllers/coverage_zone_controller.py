@@ -48,7 +48,7 @@ def create_zone(data: CoverageZoneCreate, db: Session) -> dict:
             VALUES (
                 :name,
                 ST_GeomFromText(:wkt, 4326),
-                :details::jsonb
+                CAST(:details AS jsonb)
             )
             RETURNING id, name,
                       ST_AsText(area) AS area,
@@ -71,7 +71,7 @@ def update_zone(zone_id: int, data: CoverageZoneCreate, db: Session) -> dict | N
             UPDATE coverage_zones
             SET name    = :name,
                 area    = ST_GeomFromText(:wkt, 4326),
-                details = :details::jsonb
+                details = CAST(:details AS jsonb)
             WHERE id = :id
             RETURNING id, name,
                       ST_AsText(area) AS area,

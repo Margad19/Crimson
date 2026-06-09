@@ -42,7 +42,7 @@ def create_point(data: PointCreate, db: Session) -> dict:
                 :description,
                 :node_type,
                 ST_SetSRID(ST_MakePoint(:lng, :lat), 4326),
-                :details::jsonb
+                CAST(:details AS jsonb)
             )
             RETURNING id, name, description, node_type,
                       ST_AsText(location) AS location,
@@ -69,7 +69,7 @@ def update_point(point_id: int, data: PointCreate, db: Session) -> dict | None:
                 description = :description,
                 node_type   = :node_type,
                 location    = ST_SetSRID(ST_MakePoint(:lng, :lat), 4326),
-                details     = :details::jsonb
+                details     = CAST(:details AS jsonb)
             WHERE id = :id
             RETURNING id, name, description, node_type,
                       ST_AsText(location) AS location,
