@@ -10,7 +10,7 @@
 <body>
 
 <!-- ════ SIDEBAR ════ -->
-<aside class="sidebar">
+<aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
     <div class="logo-icon">
       <svg viewBox="0 0 16 16"><path d="M2 4h12M2 8h8M2 12h10"/></svg>
@@ -116,9 +116,15 @@
 </div>
 </aside>
 
+<!-- mobile overlay, closes sidebar on tap -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
 <!-- ════ MAIN ════ -->
 <div class="main">
   <div class="topbar">
+    <button class="menu-toggle" id="menu-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">
+      <svg viewBox="0 0 16 16"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg>
+    </button>
     <span class="page-title" id="page-title">Dashboard</span>
     <span class="breadcrumb" id="breadcrumb"></span>
     <div class="topbar-right">
@@ -409,5 +415,6 @@
 <script src="./js/schedules.js"></script>
 <script src="./js/onetime.js"></script>
 <script src="./js/users.js"></script>
+<script src="./js/mobile-nav.js"></script>
 </body>
 </html>

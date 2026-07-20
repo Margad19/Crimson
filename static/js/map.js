@@ -76,12 +76,20 @@ function makeStyle(layer, subtype, selected = false) {
 
   if (layer === 'cable') {
     const cfg = CABLE_TYPES[subtype] || CABLE_TYPES.fiber;
+    if (selected) {
+      // halo technique: wide white line underneath + the real color on top,
+      // so a selected cable is unmistakable even when zoomed out
+      return [
+        new ol.style.Style({
+          stroke: new ol.style.Stroke({ color: 'rgba(255,255,255,.85)', width: 9 })
+        }),
+        new ol.style.Style({
+          stroke: new ol.style.Stroke({ color: cfg.color, width: 4, lineDash: cfg.dash || undefined })
+        })
+      ];
+    }
     return new ol.style.Style({
-      stroke: new ol.style.Stroke({
-        color: cfg.color,
-        width: selected ? 4 : 2.5,
-        lineDash: cfg.dash || undefined
-      })
+      stroke: new ol.style.Stroke({ color: cfg.color, width: 2.5, lineDash: cfg.dash || undefined })
     });
   }
 
@@ -133,6 +141,34 @@ function initMap() {
 
   document.querySelector('[data-type="dark"]').classList.add('active');
   loadAll();
+
+  // keep map tiles correctly sized when the drawer opens/closes/resizes
+  window.addEventListener('resize', () => map.updateSize());
+}
+
+// ── Mobile sidebar drawer ──────────────────────────────────────────
+function isMobileViewport() {
+  return window.innerWidth <= 860;
+}
+
+function toggleMapSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+  // tiles can render blank if resized while hidden — nudge OL after the transition
+  setTimeout(() => map && map.updateSize(), 220);
+}
+
+function openSidebarMobile() {
+  if (!isMobileViewport()) return;
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebar-overlay').classList.add('open');
+}
+
+function closeSidebarMobile() {
+  if (!isMobileViewport()) return;
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+  setTimeout(() => map && map.updateSize(), 220);
 }
 
 // ── Load all from backend ─────────────────────────────────────────
@@ -258,6 +294,9 @@ function setTool(mode, btn) {
   activeMode = mode;
   closePanel();
 
+  // on phones, picking a draw tool hides the drawer so the map is reachable
+  if (mode) closeSidebarMobile();
+
   if (!mode) { setStatus('Pan — click a feature to edit'); return; }
 
   const geomMap = {
@@ -359,6 +398,7 @@ function openEditPanel(feature) {
 
   const panel = document.getElementById('panel');
   panel.style.display = 'flex';
+  openSidebarMobile(); // panel lives inside the drawer — bring it into view on phones
 
   if (layer === 'node') {
     panel.innerHTML = `
@@ -409,6 +449,7 @@ function openEditPanel(feature) {
 function openCreatePanel(feature, geom, mode) {
   const panel = document.getElementById('panel');
   panel.style.display = 'flex';
+  openSidebarMobile(); // bring the drawer + form back into view on phones
 
   if (mode === 'node') {
     panel.innerHTML = `
