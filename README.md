@@ -1,6 +1,6 @@
 # Crimson — Router Automation & Network Map Dashboard
 
-FastAPI backend for automating network routers/switches and mapping network infrastructure (nodes, cables, coverage zones) on an OpenLayers + PostGIS map. Built for GmobileNet.
+FastAPI backend for automating network routers/switches and mapping network infrastructure (nodes, cables, coverage zones) on an OpenLayers + PostGIS map.
 
 ## Features
 
