@@ -74,6 +74,5 @@ Most routes require a Bearer JWT (`dependencies.auth.get_current_user`).
 
 ## Notes
 
-- `Нэгтгэсэн_КМЗ_2026он.kmz` — combined KMZ map data, importable via `import_kmz.py`
 - `cursor-demo-file.txt` and `backup_session.log` look like stray dev artifacts — safe to remove or gitignore
 - No `requirements.txt` committed — consider adding one (`pip freeze > requirements.txt`)
