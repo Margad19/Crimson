@@ -71,8 +71,3 @@ hash_migration.py  password hash migration script
 | `/points`, `/cable`, `/coverage-zones` | network map data (PostGIS) |
 
 Most routes require a Bearer JWT (`dependencies.auth.get_current_user`).
-
-## Notes
-
-- `cursor-demo-file.txt` and `backup_session.log` look like stray dev artifacts — safe to remove or gitignore
-- No `requirements.txt` committed — consider adding one (`pip freeze > requirements.txt`)
